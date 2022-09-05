@@ -63,7 +63,9 @@ async function addUser(req, res) {
     }
     const newUser = { name, idNumber, email, phone };
     newUser.username = username;
-    newUser.plant = await Plant.findById(plant);
+
+    newUser.plant = await Plant.findOne({ name: plant });
+    if (!newUser.plant) newUser.plant = await Plant.findById(plant);
     newUser.active = true;
     newUser.access = access || "Client";
 
@@ -72,6 +74,8 @@ async function addUser(req, res) {
 
     if (charge) newUser.charge = charge;
     const newItem = await User(newUser);
+    // res.status(200).send({ success: newItem });
+
     const itemStored = await newItem.save();
     res.status(200).send({ success: itemStored });
   } catch (e) {

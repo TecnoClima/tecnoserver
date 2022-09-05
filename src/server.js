@@ -51,11 +51,11 @@ server.use((req, res, next) => {
 server.get("/", (req, res) => res.send("Tecnoclima Server"));
 server.use(
   "/v1",
-  (req, res, next) => {
-    if (!req.headers.authorization) console.log("req.query", req.query);
-    console.log(req.headers.authorization);
-    next();
-  },
+  // (req, res, next) => {
+  //   if (!req.headers.authorization) console.log("req.query", req.query);
+  //   console.log(req.headers.authorization);
+  //   next();
+  // },
   routes
 );
 
