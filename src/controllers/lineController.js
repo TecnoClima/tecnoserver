@@ -74,7 +74,6 @@ async function addLineFromApp(req, res) {
         );
       })
     );
-    console.log("newItems", newItems);
     res.status(200).send({ success: newItems.flat(1), item: "line" });
   } catch (e) {
     console.log(e.message);
@@ -82,36 +81,36 @@ async function addLineFromApp(req, res) {
   }
 }
 
-async function addLine(lineName, lineCode, areaCode) {
-  try {
-    const area = await Area.findOne({ code: areaCode });
+// async function addLine(lineName, lineCode, areaCode) {
+//   try {
+//     const area = await Area.findOne({ code: areaCode });
 
-    const line = await Line({
-      name: lineName,
-      code: lineCode,
-      area: area._id,
-    });
-    const lineStored = await line.save();
-    await area.lines.push(mongoose.Types.ObjectId(lineStored._id));
-    await area.save();
-    return { success: true, line: lineStored };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-}
+//     const line = await Line({
+//       name: lineName,
+//       code: lineCode,
+//       area: area._id,
+//     });
+//     const lineStored = await line.save();
+//     await area.lines.push(mongoose.Types.ObjectId(lineStored._id));
+//     await area.save();
+//     return { success: true, line: lineStored };
+//   } catch (e) {
+//     return { success: false, error: e.message };
+//   }
+// }
 
-async function deleteLine(lineName) {
-  try {
-    const line = await Line.findOne({ name: lineName });
-    const area = await Area.findOne({ lines: line._id });
-    await area.lines.pull(line._id);
-    await area.save();
-    await Line.deleteOne({ name: lineName });
-    return { success: true, name: lineName };
-  } catch (e) {
-    return { success: false, name: lineName, error: e.message };
-  }
-}
+// async function deleteLine(lineName) {
+//   try {
+//     const line = await Line.findOne({ name: lineName });
+//     const area = await Area.findOne({ lines: line._id });
+//     await area.lines.pull(line._id);
+//     await area.save();
+//     await Line.deleteOne({ name: lineName });
+//     return { success: true, name: lineName };
+//   } catch (e) {
+//     return { success: false, name: lineName, error: e.message };
+//   }
+// }
 
 async function deleteOneLine(req, res) {
   try {

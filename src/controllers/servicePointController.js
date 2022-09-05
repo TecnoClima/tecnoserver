@@ -6,16 +6,17 @@ const Plant = require("../models/Plant");
 const Area = require("../models/Area");
 
 const lineController = require("../controllers/lineController");
+const Device = require("../models/Device");
 
 function buildSP(sp) {
-  const { code, name, gate, insalubrity, steelmine, calory, dangerTask } = sp;
+  const { code, name, gate, insalubrity, steelMine, calory, dangerTask } = sp;
   return {
     id: sp._id,
     code,
     name,
     gate,
     insalubrity,
-    steelmine,
+    steelMine,
     calory,
     dangerTask,
     lineId: sp.line._id,
@@ -30,13 +31,13 @@ const getAll = async (plantName) => {
     const plant = await Plant.findOne({ name: plantName });
     let spList = await ServicePoint.find({}).populate({
       path: "line",
-      select: "name",
+      select: ["name", "_id"],
       populate: {
         path: "area",
-        select: "name",
+        select: ["name", "_id"],
         populate: {
           path: "plant",
-          select: "name",
+          select: ["name", "_id"],
         },
       },
     });
@@ -93,6 +94,100 @@ async function servicePointsByLine(req, res) {
   }
 }
 
+async function addSPFromApp(req, res) {
+  console.log("req.body", req.body);
+  try {
+    const items = req.body.servicePoints;
+    console.log("items", items);
+    if (!items[0]) throw new Error("No se envió ningún lugar de servicio");
+    const parents = await Line.find({
+      _id: items.map((i) => i.line._id),
+    });
+    if (!parents[0])
+      await Promise.all(
+        items.map(async (i) => {
+          const line = await lineController.findByNameAndParents(
+            i.line,
+            i.area,
+            i.plant
+          );
+          if (!parents.find((l) => l.code === line.code)) parents.push(line);
+        })
+      );
+    console.log("parents", parents);
+
+    const newItems = await Promise.all(
+      parents.map(async (parent) => {
+        const checkItems = await ServicePoint.find({
+          name: items.map((i) => i.name),
+          line: parent._id,
+        }).populate({
+          path: "line",
+          populate: { path: "area", populate: { path: "plant" } },
+        });
+        console.log("checkItems", checkItems);
+        if (checkItems.length > 0)
+          throw new Error(
+            "'" +
+              checkItems
+                .map(
+                  (i) =>
+                    i.line.area.plant.name +
+                    ">" +
+                    i.line.area.name +
+                    ">" +
+                    i.line.name +
+                    ">" +
+                    i.name
+                )
+                .join(", ") +
+              "' ya existe(n) en base de datos"
+          );
+        const lastSP = await ServicePoint.find({ line: parent._id })
+          .sort({ code: -1 })
+          .limit(1);
+        const lastCode = lastSP[0]
+          ? parseInt(lastSP[0].code.match(/\d+$/)[0])
+          : 0;
+
+        return await Promise.all(
+          items
+            .filter((i) =>
+              i.line.name ? i.line.name === parent.name : i.line === parent.name
+            )
+            .map(async (i, index) => {
+              console.log(i);
+              let nextCode = lastCode + 1 + index;
+              const newItem = await ServicePoint({
+                name: i.name || i.servicePoint,
+                code:
+                  parent.code +
+                  "-LS" +
+                  (nextCode < 10 ? "00" : nextCode < 100 ? "0" : "") +
+                  nextCode,
+                line: parent._id,
+                gate: i.gate || "",
+                insalubrity: i.insalubrity || false,
+                steelMine: i.steelMine || false,
+                calory: i.calory || false,
+                dangerTask: i.dangerTask || false,
+              });
+              console.log("newItem", newItem);
+              const stored = await newItem.save();
+              console.log("stored", stored);
+              return stored;
+            })
+        );
+      })
+    );
+    console.log("newItems", newItems);
+    res.status(200).send({ success: newItems.flat(1), item: "servicePoint" });
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ error: e.message, item: "servicePoint" });
+  }
+}
+
 async function addServicePoint(item) {
   const { name, lineId, lineCode, calory, dangerTask, steelMine, insalubrity } =
     item;
@@ -140,81 +235,90 @@ async function findSPbyParents(sp) {
   return sp;
 }
 
-async function addSPbyList(list) {
-  const results = await Promise.all(
-    list.map(async (item) => {
-      const sp = await findSPbyParents(item);
-      let result = await addServicePoint(sp);
-      if (result.error) result = { ...sp, error: result.error };
-      return result;
-    })
-  );
-  return {
-    success: results.filter((r) => !r.error),
-    error: results.filter((r) => r.error),
-  };
-}
+// async function addSPbyList(list) {
+//   const results = await Promise.all(
+//     list.map(async (item) => {
+//       const sp = await findSPbyParents(item);
+//       let result = await addServicePoint(sp);
+//       if (result.error) result = { ...sp, error: result.error };
+//       return result;
+//     })
+//   );
+//   return {
+//     success: results.filter((r) => !r.error),
+//     error: results.filter((r) => r.error),
+//   };
+// }
 
-async function addSPFromApp(req, res) {
-  let results = [];
-  try {
-    const { servPoints, lineCode } = req.body;
-    if (servPoints && lineCode) {
-      results = await Promise.all(
-        servPoints.map(async (sp) => await addSP(sp, lineCode))
-      );
-    } else {
-      results = await addSPbyList(req.body);
-    }
-    console.log("results", results);
-    res.status(200).send(results);
-  } catch (e) {
-    res.status(400).send({ error: e.message });
-  }
-}
+// async function addSPFromApp(req, res) {
+//   let results = [];
+//   try {
+//     const { servPoints, lineCode } = req.body;
+//     if (servPoints && lineCode) {
+//       results = await Promise.all(
+//         servPoints.map(async (sp) => await addSP(sp, lineCode))
+//       );
+//     } else {
+//       results = await addSPbyList(req.body);
+//     }
+//     console.log("results", results);
+//     res.status(200).send(results);
+//   } catch (e) {
+//     res.status(400).send({ error: e.message });
+//   }
+// }
 
-async function addSP(servPoint, lineCode) {
-  try {
-    const serPoint = await ServicePoint({
-      name: servPoint.name,
-      code: servPoint.code,
-      gate: servPoint.gate,
-      steelMine: servPoint.aceria,
-      calory: servPoint.caloria,
-      dangerTask: servPoint.tareaPeligrosa,
-    });
-    const serPointStored = await serPoint.save();
-    const lines = await Line.findOne({ code: lineCode });
-    await lines.ServicePoints.push(mongoose.Types.ObjectId(serPointStored._id));
-    await lines.save();
-    return { success: true, SP: serPointStored };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-}
-
-async function deleteServicePoint(servicePointName) {
-  try {
-    const servicePoint = await ServicePoint.findOne({ name: servicePointName });
-    const line = await Line.findOne({ ServicePoints: servicePoint._id });
-    await line.ServicePoints.pull(servicePoint._id);
-    await line.save();
-    await ServicePoint.deleteOne({ name: servicePointName });
-    return { success: true, name: servicePointName };
-  } catch (e) {
-    return { success: false, name: servicePointName, error: e.message };
-  }
-}
+// async function addSP(servPoint, lineCode) {
+//   try {
+//     const serPoint = await ServicePoint({
+//       name: servPoint.name,
+//       code: servPoint.code,
+//       gate: servPoint.gate,
+//       steelMine: servPoint.aceria,
+//       calory: servPoint.caloria,
+//       dangerTask: servPoint.tareaPeligrosa,
+//     });
+//     const serPointStored = await serPoint.save();
+//     const lines = await Line.findOne({ code: lineCode });
+//     await lines.ServicePoints.push(mongoose.Types.ObjectId(serPointStored._id));
+//     await lines.save();
+//     return { success: true, SP: serPointStored };
+//   } catch (e) {
+//     return { success: false, error: e.message };
+//   }
+// }
 
 async function deleteOneServicePoint(req, res) {
   try {
-    const servicePointName = req.body.name;
-    let response = await deleteServicePoint(servicePointName);
-    res.status(201).send({ response });
+    const { spId } = req.query;
+    const servicePoint = await ServicePoint.findById(spId);
+    if (!servicePoint) throw new Error("El Lugar de Servicio no existe");
+    const devices = await Device.find({ servicePoints: servicePoint._id });
+    if ((servicePoint.devices && servicePoint.devices[0]) || devices[0]) {
+      throw new Error("El lugar de servicio contiene equipos asociados");
+    }
+    const { name, code } = servicePoint;
+    await ServicePoint.deleteOne({ _id: servicePoint._id });
+    res.status(200).send({
+      success: `El lugar de servicio ${name} fue eliminado`,
+      item: "servicePoint",
+      code,
+    });
   } catch (e) {
+    console.log(e.message);
     res.status(400).send({ error: e.message });
   }
 }
+
+// async function deleteOneServicePoint(req, res) {
+//   try {
+//     const servicePointName = req.body.name;
+//     let response = await deleteServicePoint(servicePointName);
+//     res.status(201).send({ response });
+//   } catch (e) {
+//     res.status(400).send({ error: e.message });
+//   }
+// }
 
 async function getSPByName(req, res) {
   try {
@@ -238,36 +342,19 @@ async function getSPByName(req, res) {
 
 async function updateServicePoint(req, res) {
   try {
-    let {
-      newName,
-      newCode,
-      newGate,
-      newAceria,
-      newCaloria,
-      newTareaPeligrosa,
-      newInsalubridad,
-      oldName,
-    } = req.body;
-    const checkSP = await ServicePoint.find({ name: oldName }).lean().exec();
-    if (checkSP.length > 0) {
-      const spUpdated = await ServicePoint.updateOne(
-        { name: oldName },
-        {
-          name: newName,
-          code: newCode,
-          gate: newGate,
-          steelMine: newAceria,
-          calory: newCaloria,
-          dangerTask: newTareaPeligrosa,
-          insalubrity: newInsalubridad,
-        }
-      );
-      res.status(201).send({ spUpdated });
-    } else {
-      res.status(400).send({ message: "El área no existe" });
-    }
+    const { servicePoint, previous } = req.body;
+    const checkSP = await ServicePoint.findById(previous.id || previous._id);
+    if (!checkSP) throw new Error("El lugar de servicio no existe");
+    if (
+      checkSP.name !== servicePoint.name &&
+      ServicePoint.findOne({ name: servicePoint.name })
+    )
+      throw new Error("Nombre actualmente en uso");
+    await ServicePoint.updateOne({ _id: checkSP._id }, { ...servicePoint });
+    const update = await ServicePoint.findOne({ code: servicePoint.code });
+    res.status(200).send({ success: update, item: "servicePoint", previous });
   } catch (e) {
-    res.status(500).send({ message: e.message });
+    res.status(400).send({ message: e.message });
   }
 }
 

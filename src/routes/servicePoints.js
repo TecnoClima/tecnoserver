@@ -10,12 +10,12 @@ const {
 } = require("../controllers/servicePointController");
 const server = express.Router();
 
-server.get('/',getServicePoints)
+server.get("/", getServicePoints);
 
 server.get("/byLine/:lineName", servicePointsByLine);
 server.post("/", addSPFromApp);
-server.delete("/oneServicePoint", deleteOneServicePoint);
+server.delete("/", deleteOneServicePoint);
 server.get("/getSPByName/:name", getSPByName);
-server.put("/update", updateServicePoint);
+server.put("/", updateServicePoint);
 
 module.exports = server;
