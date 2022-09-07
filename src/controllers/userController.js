@@ -26,7 +26,6 @@ async function setPassword(string) {
 }
 
 async function addUser(req, res) {
-  console.log(req.body, "req.body");
   try {
     const {
       charge,
@@ -115,9 +114,9 @@ async function login(req, res) {
 async function getUserData(req, res) {
   try {
     const token = req.headers.authorization.split(" ")[1];
-    console.log("token", token);
     jwt.verify(token, process.env.SECRET_KEY, (err, user) => {
       if (err) {
+        console.log(err);
         res
           .status(400)
           .send({ error: "Access denied: Token expired or incorrect" });
@@ -126,6 +125,7 @@ async function getUserData(req, res) {
       }
     });
   } catch (e) {
+    console.log(e);
     res.status(400).send({ error: e.message });
   }
 }
@@ -136,15 +136,21 @@ function generateAccessToken(user) {
 
 function validateToken(req, res, next) {
   try {
-    const accessToken = req.headers["authorization"];
-    if (!accesToken) res.send("Access Denied");
-    jwt.verify(accessToken, process.env.SECRET_KEY, (err, user) => {
-      if (err) {
-        res.send("Access denied: Token expired or incorrect");
-      } else {
-        next();
-      }
-    });
+    if (req.url !== "/users/auth") {
+      const accessToken = req.headers.authorization.split(" ")[1];
+      if (!accessToken) res.status(400).send({ error: "Access Denied" });
+      jwt.verify(accessToken, process.env.SECRET_KEY, (err, user) => {
+        if (err) {
+          res
+            .status(400)
+            .send({ error: "Access denied: Token expired or incorrect" });
+        } else {
+          next();
+        }
+      });
+    } else {
+      next();
+    }
   } catch (e) {
     res.status(400).send({ error: e.message });
   }
@@ -154,12 +160,10 @@ async function updateUser(req, res) {
   try {
     const { id, update } = req.body;
     const { idNumber } = req.params;
-    console.log("req.body", req.body);
     const user =
       typeof id === "number"
         ? await User.findOne({ idNumber: id })
         : await User.findById(id);
-    console.log("user", user.username);
     if (update.currentPassword) {
       if (await bcrypt.compare(update.currentPassword, user.password)) {
         update.password = update.newPassword;
@@ -216,7 +220,6 @@ async function getUserOptions(req, res) {
 }
 
 async function filterUser(req, res) {
-  console.log("filterUser", req.body);
   try {
     const { filters } = req.body;
     if (filters.plant) {
@@ -231,6 +234,8 @@ async function filterUser(req, res) {
 }
 
 module.exports = {
+  validateToken,
+
   addUser,
   login,
   getUserData,

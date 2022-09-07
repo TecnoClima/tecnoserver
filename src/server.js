@@ -5,6 +5,7 @@ const morgan = require("morgan");
 const cors = require("cors");
 const routes = require("./routes/index.js");
 //const productRoutes = require('./routes/products');
+const user = require("./controllers/userController");
 
 const server = express();
 
@@ -51,11 +52,7 @@ server.use((req, res, next) => {
 server.get("/", (req, res) => res.send("Tecnoclima Server"));
 server.use(
   "/v1",
-  // (req, res, next) => {
-  //   if (!req.headers.authorization) console.log("req.query", req.query);
-  //   console.log(req.headers.authorization);
-  //   next();
-  // },
+  (req, res, next) => user.validateToken(req, res, next),
   routes
 );
 
