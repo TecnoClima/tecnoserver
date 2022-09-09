@@ -87,6 +87,10 @@ async function login(req, res) {
   try {
     const { username, password } = req.body;
     const user = await User.findOne({ username: username }).populate("plant");
+    if (!user)
+      throw new Error(
+        "Usuario o Contraseña incorrecta, intente de nuevo por favor"
+      );
     const tokenInput = {
       user: username,
       access: user.access,
@@ -107,6 +111,7 @@ async function login(req, res) {
       },
     });
   } catch (e) {
+    console.log(e);
     res.status(400).send({ error: e.message });
   }
 }
@@ -136,7 +141,11 @@ function generateAccessToken(user) {
 
 function validateToken(req, res, next) {
   try {
-    if (req.url !== "/users/auth") {
+    if (
+      req.url !== "/users/auth" ||
+      (req.method === "GET" &&
+        ["/plants", "/areas", "/lines"].includes(req.url))
+    ) {
       const accessToken = req.headers.authorization.split(" ")[1];
       if (!accessToken) res.status(400).send({ error: "Access Denied" });
       jwt.verify(accessToken, process.env.SECRET_KEY, (err, user) => {
@@ -181,7 +190,7 @@ async function updateUser(req, res) {
       ...updated._doc,
       plant: updated._doc.plant ? updated._doc.plant.name : undefined,
     };
-    res.status(200).send();
+    res.status(200).send(result);
   } catch (e) {
     console.log(e);
     res.status(400).send({ error: e.message });
