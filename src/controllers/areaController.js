@@ -100,7 +100,7 @@ async function deleteOneArea(req, res) {
     const area = await Area.findById(areaId);
     if (!area) throw new Error("El area a eliminar no existe");
     const lines = await Line.find({ area: area._id });
-    if (lines.length > 0) throw new Error("El area a eliminar no existe");
+    if (lines.length > 0) throw new Error("El area a contiene líneas");
     const { code, name } = area;
     await Plant.updateOne({ areas: area._id }, { $pull: { areas: area._id } });
     await Area.deleteOne({ _id: area._id });

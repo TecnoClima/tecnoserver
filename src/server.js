@@ -19,7 +19,6 @@ function handleError(middleware, req, res, next) {
       console.error(err);
       return res.sendStatus(400); // Bad request
     }
-
     next();
   });
 }
