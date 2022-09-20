@@ -22,9 +22,19 @@ async function checkLine(lineName) {
 }
 
 async function getLines(req, res) {
+  const { line, area, plant } = req.query;
   try {
-    const lines = await Line.find().lean().exec();
-    res.status(200).send(lines);
+    let result;
+    if ((line, area, plant)) {
+      console.log(line, area, plant);
+      const dbPlant = await Plant.findOne({ name: plant });
+      const dbArea = await Area.findOne({ name: area, plant: dbPlant._id });
+      result = await Line.findOne({ name: line, area: dbArea._id });
+      console.log("result", result);
+    } else {
+      result = await Line.find().lean().exec();
+    }
+    res.status(200).send(result);
   } catch (e) {
     res.status(400).send({ error: e.message });
   }

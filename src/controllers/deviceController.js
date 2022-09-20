@@ -9,19 +9,26 @@ const WorkOrder = require("../models/WorkOrder");
 const Refrigerant = require("../models/Refrigerant");
 const spController = require("../controllers/servicePointController");
 const ServicePoint = require("../models/ServicePoint");
+const mongoose = require("mongoose");
+const { send } = require("express/lib/response");
+const { findOne } = require("../models/Plant");
 
 function buildDevice(device, line, area, plant) {
   const today = new Date();
   const regDate = new Date(device.regDate);
 
+  // console.log("device", device, "line", line);
+
   return {
     plant: device.line.name ? device.line.area.plant.name : plant,
     area: device.line.area ? device.line.area.name : area,
-    line: device.line.area ? device.line.name : line,
+    line: device.line.name || line,
+    active: device.active || true,
     code: device.code,
     name: device.name,
     type: device.type,
     power: device.powerKcal,
+    extraDetails: device.extraDetails,
     refrigerant: device.refrigerant ? device.refrigerant.refrigerante : "",
     service: device.service,
     status: device.status,
@@ -197,9 +204,10 @@ async function addNew(device) {
     ? parseInt(lineDevices[0].code.match(/\d+$/)[0])
     : 0;
 
-  const servicePoints = device.servicePoints[0].name
-    ? device.servicePoints.map((sp) => sp._id)
-    : undefined;
+  const servicePoints =
+    device.servicePoints[0] && device.servicePoints[0].name
+      ? device.servicePoints.map((sp) => sp._id)
+      : undefined;
 
   const newDevice = await Device({
     code:
@@ -208,7 +216,7 @@ async function addNew(device) {
     line: line._id,
     name: device.name.toUpperCase(),
     regDate: new Date(device.regDate),
-    powerkCal: power,
+    powerKcal: Number(power),
     type,
     service,
     category,
@@ -219,23 +227,78 @@ async function addNew(device) {
     servicePoints,
   });
   const stored = await newDevice.save();
+  const addedDevice = await Device.findById(stored._id)
+    .populate("refrigerant")
+    .populate("servicePoints")
+    .populate({
+      path: "line",
+      select: "name",
+      populate: {
+        path: "area",
+        select: "name",
+        populate: { path: "plant", select: "name" },
+      },
+    });
 
-  // currently commented because servicePoint.devices is not used.
-  // if (servicePoints.length) {
-  //   const spFound = await ServicePoint.find({ _id: { $in: servicePoints } });
-  //   const spgot = await ServicePoint.updateMany(
-  //     { _id: { $in: servicePoints } },
-  //     { $push: { devices: stored._id } }
-  //   );
-  // }
+  return buildDevice(addedDevice);
+}
 
-  return buildDevice(stored, line.name, line.area.name, line.area.plant.name);
+async function updateDevice(req, res) {
+  try {
+    const device = { ...req.body };
+    const plant = await Plant.findOne({ name: device.plant });
+    const area = await Area.findOne({ name: device.area, plant: plant._id });
+    device.line = await Line.findOne({
+      name: device.line,
+      area: area._id,
+    });
+    device.servicePoints = await ServicePoint.find({
+      _id: {
+        $in: device.servicePoints.map((id) => mongoose.Types.ObjectId(id)),
+      },
+    });
+    device.name = device.name.toUpperCase();
+    device.refrigerant = await Refrigerant.findOne({
+      name: device.refrigerant,
+    });
+    await Device.findOneAndUpdate(
+      { code: device.code, line: device.line._id },
+      device
+    );
+    const updated = await Device.findOne({ code: device.code })
+      .populate("refrigerant")
+      .populate("servicePoints")
+      .populate({
+        path: "line",
+        select: "name",
+        populate: {
+          path: "area",
+          select: "name",
+          populate: { path: "plant", select: "name" },
+        },
+      });
+    res.status(200).send({ success: buildDevice(updated) });
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ error: e.message });
+  }
 }
 
 async function newDevice(req, res) {
   try {
-    const newItem = await addNew(req.body);
-    res.status(200).send(newItem);
+    const device = { ...req.body };
+    const area = await Area.findById(device.area);
+    device.line = await Line.findOne({
+      name: device.line,
+      area: area._id,
+    });
+    device.servicePoints = await ServicePoint.find({
+      _id: {
+        $in: device.servicePoints.map((id) => mongoose.Types.ObjectId(id)),
+      },
+    });
+    const newItem = await addNew(device);
+    res.status(200).send({ success: newItem });
   } catch (e) {
     console.log(e);
     res.status(400).send({ error: e.message });
@@ -407,6 +470,7 @@ module.exports = {
   allDevices,
   findById,
   getDeviceHistory,
+  updateDevice,
 
   fullDeviceOptions,
   getDeviceFilters,

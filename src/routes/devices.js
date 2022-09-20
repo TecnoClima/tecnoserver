@@ -1,5 +1,6 @@
 const express = require("express");
 const {
+  updateDevice,
   newDevice,
   devicesByPage,
   findById,
@@ -17,6 +18,7 @@ const server = express.Router();
 // server.get('/byplant', deviceListByPlant)
 server.get("/", devicesByPage);
 server.post("/", newDevice);
+server.put("/", updateDevice);
 server.get("/all", allDevices);
 server.get("/id", findById);
 server.get("/history", getDeviceHistory);

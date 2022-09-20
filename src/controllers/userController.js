@@ -63,8 +63,10 @@ async function addUser(req, res) {
     const newUser = { name, idNumber, email, phone };
     newUser.username = username;
 
-    newUser.plant = await Plant.findOne({ name: plant });
-    if (!newUser.plant) newUser.plant = await Plant.findById(plant);
+    if (plant) {
+      newUser.plant = await Plant.findOne({ name: plant });
+      if (!newUser.plant) newUser.plant = await Plant.findById(plant);
+    }
     newUser.active = true;
     newUser.access = access || "Client";
 
@@ -166,6 +168,7 @@ function validateToken(req, res, next) {
 }
 
 async function updateUser(req, res) {
+  console.log("update", req.body.update);
   try {
     const { id, update } = req.body;
     const { idNumber } = req.params;
@@ -182,15 +185,16 @@ async function updateUser(req, res) {
     }
 
     if (update.password) update.password = await setPassword(update.password);
-    if (update.plantName)
-      update.plantName = await Plant.findOne({ name: plantName });
+    update.plant = update.plant
+      ? await Plant.findOne({ name: update.plant })
+      : null;
     await User.findByIdAndUpdate(user._id, update);
     const updated = await User.findById(user._id).populate("plant");
     const result = {
       ...updated._doc,
       plant: updated._doc.plant ? updated._doc.plant.name : undefined,
     };
-    res.status(200).send(result);
+    res.status(200).send({ success: result });
   } catch (e) {
     console.log(e);
     res.status(400).send({ error: e.message });
