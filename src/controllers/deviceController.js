@@ -258,9 +258,9 @@ async function updateDevice(req, res) {
       },
     });
     device.name = device.name.toUpperCase();
-    device.refrigerant = await Refrigerant.findOne({
-      name: device.refrigerant,
-    });
+    device.refrigerant = (
+      await Refrigerant.findOne({ refrigerante: device.refrigerant })
+    )._id;
     await Device.findOneAndUpdate(
       { code: device.code, line: device.line._id },
       device

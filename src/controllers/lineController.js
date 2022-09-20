@@ -30,7 +30,6 @@ async function getLines(req, res) {
       const dbPlant = await Plant.findOne({ name: plant });
       const dbArea = await Area.findOne({ name: area, plant: dbPlant._id });
       result = await Line.findOne({ name: line, area: dbArea._id });
-      console.log("result", result);
     } else {
       result = await Line.find().lean().exec();
     }
