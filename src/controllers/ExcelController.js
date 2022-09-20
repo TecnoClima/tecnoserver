@@ -5,64 +5,68 @@ const Line = require("../models/Line");
 const ServicePoint = require("../models/ServicePoint");
 
 async function loadFromExcel(req, res) {
-  const { schema, items } = req.body;
-  let addedItems = [];
+  try {
+    const { schema, items } = req.body;
+    let addedItems = [];
 
-  // const plants = await Plant.find();
-  // const areas = await Area.find().populate("plant");
-  const lines = await Line.find().populate({
-    path: "area",
-    populate: { path: "plant" },
-  });
+    // const plants = await Plant.find();
+    // const areas = await Area.find().populate("plant");
+    const lines = await Line.find().populate({
+      path: "area",
+      populate: { path: "plant" },
+    });
 
-  switch (schema) {
-    case "Device":
-      for await (let item of items) {
-        const {
-          name,
-          type,
-          power,
-          service,
-          category,
-          environment,
-          status,
-          extraDetails,
-          refrigerant,
-        } = item;
-        const line = lines.find(
-          (l) =>
-            l.name === item.line &&
-            l.area.name === item.area &&
-            l.area.plant.name === item.plant
-        );
-        const sp = await ServicePoint.find({ line: line._id }).populate("line");
-        const servicePoints = sp.filter((sp) =>
-          item.servicePoints.includes(sp.name)
-        );
-        const newItem = await deviceController.addNew({
-          name,
-          type,
-          power,
-          service,
-          category,
-          environment,
-          status,
-          regDate: new Date(item.regDate),
-          extraDetails,
-          refrigerant,
-          line,
-          servicePoints,
-        });
-        addedItems.push(newItem);
-      }
-      break;
-    default:
-      break;
+    switch (schema) {
+      case "Device":
+        for await (let item of items) {
+          const {
+            name,
+            type,
+            power,
+            service,
+            category,
+            environment,
+            status,
+            extraDetails,
+            refrigerant,
+          } = item;
+          const line = lines.find(
+            (l) =>
+              l.name === item.line &&
+              l.area.name === item.area &&
+              l.area.plant.name === item.plant
+          );
+          const sp = await ServicePoint.find({ line: line._id }).populate(
+            "line"
+          );
+          const servicePoints = sp.filter((sp) =>
+            item.servicePoints.includes(sp.name)
+          );
+          const newItem = await deviceController.addNew({
+            name,
+            type,
+            power,
+            service,
+            category,
+            environment,
+            status,
+            regDate: new Date(item.regDate),
+            extraDetails,
+            refrigerant,
+            line,
+            servicePoints,
+          });
+          addedItems.push(newItem);
+        }
+        break;
+      default:
+        break;
+    }
+    res.status(200).send({ success: { items: addedItems } });
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ error: e.message });
   }
-  res.status(200).send({ success: { items: addedItems } });
-  // for await (let item of addedItems)
-  //   await deviceController.deleteDevice(item.code);
-  // console.log("finished");
 }
 
 async function buildExcel(req, res) {

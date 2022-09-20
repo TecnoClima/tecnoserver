@@ -26,7 +26,6 @@ async function getLines(req, res) {
   try {
     let result;
     if ((line, area, plant)) {
-      console.log(line, area, plant);
       const dbPlant = await Plant.findOne({ name: plant });
       const dbArea = await Area.findOne({ name: area, plant: dbPlant._id });
       result = await Line.findOne({ name: line, area: dbArea._id });
