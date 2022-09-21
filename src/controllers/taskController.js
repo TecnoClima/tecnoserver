@@ -182,6 +182,8 @@ async function taskDeviceList(req, res) {
       .lean()
       .exec();
 
+    console.log("planDevices.length", planDevices.length);
+
     //reclaimsList
     const today = new Date();
     const reclaimed = await WorkOrder.aggregate([

@@ -194,6 +194,7 @@ async function addNew(device) {
     status,
     extraDetails,
     refrigerant,
+    active,
   } = device;
 
   const lineDevices = await Device.find({ code: { $regex: line.code } })
@@ -225,6 +226,7 @@ async function addNew(device) {
     extraDetails,
     refrigerant: (await Refrigerant.findOne({ refrigerante: refrigerant }))._id,
     servicePoints,
+    active,
   });
   const stored = await newDevice.save();
   const addedDevice = await Device.findById(stored._id)

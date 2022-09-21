@@ -29,6 +29,7 @@ async function loadFromExcel(req, res) {
             status,
             extraDetails,
             refrigerant,
+            active,
           } = item;
           const line = lines.find(
             (l) =>
@@ -55,6 +56,7 @@ async function loadFromExcel(req, res) {
             refrigerant,
             line,
             servicePoints,
+            active: active === "SI",
           });
           addedItems.push(newItem);
         }
