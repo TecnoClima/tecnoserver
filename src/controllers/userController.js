@@ -216,6 +216,10 @@ async function getUsersList(req, res) {
       ...user._doc,
       plant: user._doc.plant ? user._doc.plant.name : undefined,
     }));
+    array.map((user) => {
+      delete user.password;
+      return user;
+    });
 
     res.status(200).send(array);
   } catch (e) {

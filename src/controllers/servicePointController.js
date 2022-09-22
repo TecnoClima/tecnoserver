@@ -7,6 +7,7 @@ const Area = require("../models/Area");
 
 const lineController = require("../controllers/lineController");
 const Device = require("../models/Device");
+const { locationOptions } = require("./plantController");
 
 function buildSP(sp) {
   const { code, name, gate, insalubrity, steelMine, calory, dangerTask } = sp;
@@ -95,145 +96,154 @@ async function servicePointsByLine(req, res) {
 }
 
 async function addSPFromApp(req, res) {
-  console.log("req.body", req.body);
+  let errors = [];
   try {
-    const items = req.body.servicePoints;
-    console.log("items", items);
-    if (!items[0]) throw new Error("No se envió ningún lugar de servicio");
-    const parents = await Line.find({
-      _id: items.map((i) => i.line._id),
+    let { servicePoints } = req.body;
+    //check there is actually a service point
+    if (!servicePoints[0])
+      throw new Error("No se envió ningún lugar de servicio");
+
+    // get data to check errors
+    const codes = servicePoints.map((sp) => sp.code).filter((code) => !!code);
+    const checkCodes =
+      codes[0] && (await ServicePoint.find({ code: { $in: codes } }));
+    const checkSP = await ServicePoint.find({
+      name: { $in: servicePoints.map((sp) => sp.name) },
     });
-    if (!parents[0])
-      await Promise.all(
-        items.map(async (i) => {
-          const line = await lineController.findByNameAndParents(
-            i.line,
-            i.area,
-            i.plant
-          );
-          if (!parents.find((l) => l.code === line.code)) parents.push(line);
-        })
-      );
-    console.log("parents", parents);
+    // get lines
+    let line =
+      servicePoints.length === 1 &&
+      (await Line.findById(servicePoints[0].line));
 
-    const newItems = await Promise.all(
-      parents.map(async (parent) => {
-        const checkItems = await ServicePoint.find({
-          name: items.map((i) => i.name),
-          line: parent._id,
+    const lines = line
+      ? [line]
+      : await Line.find({
+          name: { $in: servicePoints.map((sp) => sp.line) },
         }).populate({
-          path: "line",
-          populate: { path: "area", populate: { path: "plant" } },
+          path: "area",
+          select: "name",
+          populate: { path: "plant", select: "name" },
         });
-        console.log("checkItems", checkItems);
-        if (checkItems.length > 0)
-          throw new Error(
-            "'" +
-              checkItems
-                .map(
-                  (i) =>
-                    i.line.area.plant.name +
-                    ">" +
-                    i.line.area.name +
-                    ">" +
-                    i.line.name +
-                    ">" +
-                    i.name
-                )
-                .join(", ") +
-              "' ya existe(n) en base de datos"
-          );
-        const lastSP = await ServicePoint.find({ line: parent._id })
-          .sort({ code: -1 })
-          .limit(1);
-        const lastCode = lastSP[0]
-          ? parseInt(lastSP[0].code.match(/\d+$/)[0])
-          : 0;
+    // check for errors
+    for (let sp of servicePoints) {
+      let error = "";
+      const line = lines.find(
+        (l) =>
+          (l.name === sp.line &&
+            l.area.name === sp.area &&
+            l.area.plant.name === sp.plant) ||
+          l.name === sp.line.name
+      );
+      if (!line) error = `No se encontró línea ${sp.line}`;
+      if (sp.code && checkCodes.find((e) => e.code === sp.code))
+        error = `código actualmente en uso`;
+      if (checkSP.find((e) => e.name === sp.name))
+        error = `Ya existe lugar de servicio ${sp.plant} > ${sp.area} > ${sp.line} > ${sp.name}`;
+      if (error) {
+        sp.error = error;
+      } else {
+        sp.line = line;
+      }
+    }
+    errors = [...errors, ...servicePoints.filter((sp) => !!sp.error)];
+    // clean the service points array
+    servicePoints = servicePoints.filter((sp) => !sp.error);
 
-        return await Promise.all(
-          items
-            .filter((i) =>
-              i.line.name ? i.line.name === parent.name : i.line === parent.name
-            )
-            .map(async (i, index) => {
-              console.log(i);
-              let nextCode = lastCode + 1 + index;
-              const newItem = await ServicePoint({
-                name: i.name || i.servicePoint,
-                code:
-                  parent.code +
-                  "-LS" +
-                  (nextCode < 10 ? "00" : nextCode < 100 ? "0" : "") +
-                  nextCode,
-                line: parent._id,
-                gate: i.gate || "",
-                insalubrity: i.insalubrity || false,
-                steelMine: i.steelMine || false,
-                calory: i.calory || false,
-                dangerTask: i.dangerTask || false,
-              });
-              console.log("newItem", newItem);
-              const stored = await newItem.save();
-              console.log("stored", stored);
-              return stored;
-            })
-        );
+    //get the lastCodes object
+    const lineSPs = await ServicePoint.find({
+      line: { $in: lines.map((l) => l._id) },
+    })
+      .populate({ path: "line" })
+      .sort({
+        code: -1,
+      });
+    const lastCodes = lines.map((line) => {
+      const lastSP = lineSPs.find(
+        (sp) => JSON.stringify(sp.line._id) === JSON.stringify(line._id)
+      );
+      return {
+        lineCode: line.code,
+        code: lastSP ? parseInt(lastSP.code.match(/\d+$/)) : 0,
+      };
+    });
+    // create the items
+    const newItems = await Promise.all(
+      servicePoints.map(async (sp) => {
+        // ensure the code
+        if (!sp.code) {
+          const lineCode = sp.line.code;
+          const number =
+            lastCodes.find((lc) => lc.lineCode === lineCode).code + 1;
+          lastCodes.find((lc) => lc.lineCode === lineCode).code++;
+          const code =
+            (number < 100 ? "0" : "") + (number < 10 ? "0" : "") + number;
+          sp.code = lineCode + "-LS" + code;
+        }
+        // create the item
+        const newSP = await ServicePoint({
+          ...sp,
+          line: sp.line._id,
+          name: sp.servicePoint,
+        });
+        // save the item
+        return await newSP.save();
       })
     );
-    console.log("newItems", newItems);
-    res.status(200).send({ success: newItems.flat(1), item: "servicePoint" });
+    if (!newItems[0]) throw new Error(errors[0].error);
+
+    res.status(200).send({ success: newItems, errors, item: "servicePoint" });
   } catch (e) {
     console.log(e);
-    res.status(400).send({ error: e.message, item: "servicePoint" });
+    res.status(400).send({ error: e.message, errors, item: "servicePoint" });
   }
 }
 
-async function addServicePoint(item) {
-  const { name, lineId, lineCode, calory, dangerTask, steelMine, insalubrity } =
-    item;
-  try {
-    const checkSP = await ServicePoint.find({ name, line: lineId });
-    if (checkSP.length) throw new Error("El lugar de servicio ya existe");
+// async function addServicePoint(item) {
+//   const { name, lineId, lineCode, calory, dangerTask, steelMine, insalubrity } =
+//     item;
+//   try {
+//     const checkSP = await ServicePoint.find({ name, line: lineId });
+//     if (checkSP.length) throw new Error("El lugar de servicio ya existe");
 
-    const lineSP = await ServicePoint.find({ line: lineId })
-      .sort({ code: -1 })
-      .limit(1);
+//     const lineSP = await ServicePoint.find({ line: lineId })
+//       .sort({ code: -1 })
+//       .limit(1);
 
-    const lastCode = lineSP[0] ? parseInt(lineSP[0].code.match(/\d+$/)[0]) : 0;
-    const nextCode = lastCode + 1;
-    const code =
-      lineCode +
-      "-" +
-      (nextCode + 1 < 10 ? "00" : nextCode < 100 ? "0" : "") +
-      nextCode;
+//     const lastCode = lineSP[0] ? parseInt(lineSP[0].code.match(/\d+$/)[0]) : 0;
+//     const nextCode = lastCode + 1;
+//     const code =
+//       lineCode +
+//       "-" +
+//       (nextCode + 1 < 10 ? "00" : nextCode < 100 ? "0" : "") +
+//       nextCode;
 
-    const newItem = await ServicePoint({
-      code,
-      name,
-      line: lineId,
-      calory: calory || false,
-      dangerTask: dangerTask || false,
-      steelMine: steelMine || false,
-      insalubrity: insalubrity || false,
-    });
-    const stored = await newItem.save();
-    return stored;
-  } catch (e) {
-    return { name, error: e.message };
-  }
-}
+//     const newItem = await ServicePoint({
+//       code,
+//       name,
+//       line: lineId,
+//       calory: calory || false,
+//       dangerTask: dangerTask || false,
+//       steelMine: steelMine || false,
+//       insalubrity: insalubrity || false,
+//     });
+//     const stored = await newItem.save();
+//     return stored;
+//   } catch (e) {
+//     return { name, error: e.message };
+//   }
+// }
 
-async function findSPbyParents(sp) {
-  const line = await lineController.findByNameAndParents(
-    sp.line,
-    sp.area,
-    sp.plant
-  );
-  sp.name = sp.name || sp.servicePoint;
-  sp.lineId = line._id;
-  sp.lineCode = line.code;
-  return sp;
-}
+// async function findSPbyParents(sp) {
+//   const line = await lineController.findByNameAndParents(
+//     sp.line,
+//     sp.area,
+//     sp.plant
+//   );
+//   sp.name = sp.name || sp.servicePoint;
+//   sp.lineId = line._id;
+//   sp.lineCode = line.code;
+//   return sp;
+// }
 
 // async function addSPbyList(list) {
 //   const results = await Promise.all(
@@ -306,7 +316,7 @@ async function deleteOneServicePoint(req, res) {
     });
   } catch (e) {
     console.log(e.message);
-    res.status(400).send({ error: e.message });
+    res.status(400).send({ error: e.message, item: "servicePoint" });
   }
 }
 

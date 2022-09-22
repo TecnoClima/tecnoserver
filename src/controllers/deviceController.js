@@ -457,8 +457,9 @@ async function devicesByName(req, res) {
 }
 async function getOptions(req, res) {
   try {
-    res.status(200).send(await DeviceOptions.findOne({}));
+    res.status(200).send(await DeviceOptions.findOne());
   } catch (e) {
+    console.log(e);
     res.status(400).send({ error: e.message });
   }
 }

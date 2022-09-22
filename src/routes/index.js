@@ -9,7 +9,6 @@ const workOrderRoutes = require("./workOrders");
 const deviceRoutes = require("./devices");
 const interventionRoutes = require("./interventions");
 const cylinderRoutes = require("./cylinders");
-const abmDevicesRoutes = require("./abmdevices");
 const strategiesRoutes = require("./strategies");
 const taskRoutes = require("./tasks");
 const csvRoutes = require("../loadFromCsv/csvRoutes");
@@ -27,7 +26,6 @@ server.use("/users", userRoutes);
 server.use("/workorder", workOrderRoutes);
 server.use("/intervention", interventionRoutes);
 server.use("/cylinders", cylinderRoutes);
-// server.use('/abmdevices', abmDevicesRoutes)
 server.use("/strategies", strategiesRoutes);
 server.use("/tasks", taskRoutes);
 server.use("/csvupdate", csvRoutes);
