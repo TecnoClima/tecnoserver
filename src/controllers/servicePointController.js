@@ -96,6 +96,7 @@ async function servicePointsByLine(req, res) {
 }
 
 async function addSPFromApp(req, res) {
+  console.log(req.body);
   let errors = [];
   try {
     let { servicePoints } = req.body;
@@ -111,10 +112,14 @@ async function addSPFromApp(req, res) {
       name: { $in: servicePoints.map((sp) => sp.name) },
     });
     // get lines
-    let line =
-      servicePoints.length === 1 &&
-      (await Line.findById(servicePoints[0].line));
-
+    let line;
+    try {
+      line =
+        servicePoints.length === 1 &&
+        (await Line.findById(servicePoints[0].line));
+    } catch (e) {
+      line = undefined;
+    }
     const lines = line
       ? [line]
       : await Line.find({
@@ -138,7 +143,7 @@ async function addSPFromApp(req, res) {
       if (sp.code && checkCodes.find((e) => e.code === sp.code))
         error = `código actualmente en uso`;
       if (checkSP.find((e) => e.name === sp.name))
-        error = `Ya existe lugar de servicio ${sp.plant} > ${sp.area} > ${sp.line} > ${sp.name}`;
+        error = `Ya existe lugar de servicio ${sp.plant} > ${sp.area} > ${sp.line} > ${sp.servicePoint}`;
       if (error) {
         sp.error = error;
       } else {

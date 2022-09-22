@@ -20,40 +20,47 @@ async function loadFromExcel(req, res) {
 
     switch (schema) {
       case "Device":
-        for await (let item of items) {
-          if (item.code) {
-            const check = await Device.findOne({ code: item.code });
-            // if (check) throw new Error (`Código ${item.code} en uso. Equipo ${check.name}`)
-            if (check)
+        await Promise.all(
+          items.map(async (item) => {
+            try {
+              if (item.code) {
+                const check = await Device.findOne({ code: item.code });
+                if (check)
+                  throw new Error(
+                    `Código ${item.code} en uso. Equipo ${check.name}`
+                  );
+              }
+              item.line = lines.find(
+                (l) =>
+                  l.name === item.line &&
+                  l.area.name === item.area &&
+                  l.area.plant.name === item.plant
+              );
+              const sp = await ServicePoint.find({
+                line: item.line._id,
+              }).populate("line");
+              item.servicePoints = sp.filter((sp) =>
+                item.servicePoints.includes(sp.name)
+              );
+              item.regDate = new Date(item.regDate);
+              item.active = item.active === "Si";
+              const newItem = await deviceController.addNew(item);
+              addedItems.push(newItem);
+            } catch (e) {
               errors.push({
                 code: item.code,
-                error: `Código ${item.code} en uso. Equipo ${check.name}`,
+                error: e.message,
               });
-          } else {
-            item.line = lines.find(
-              (l) =>
-                l.name === item.line &&
-                l.area.name === item.area &&
-                l.area.plant.name === item.plant
-            );
-            const sp = await ServicePoint.find({
-              line: item.line._id,
-            }).populate("line");
-            item.servicePoints = sp.filter((sp) =>
-              item.servicePoints.includes(sp.name)
-            );
-            item.regDate = new Date(item.regDate);
-            item.active = item.active === "Si";
-
-            const newItem = await deviceController.addNew(item);
-            addedItems.push(newItem);
-          }
-        }
+            }
+          })
+        );
         break;
       default:
         break;
     }
-    res.status(200).send({ success: addedItems, errors });
+    const results = { errors };
+    if (addedItems[0]) results.success = addedItems;
+    res.status(200).send(results);
   } catch (e) {
     console.log(e);
     res

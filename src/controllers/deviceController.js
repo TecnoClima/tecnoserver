@@ -186,48 +186,66 @@ async function fullDeviceOptions(req, res) {
 async function addNew(device) {
   const {
     line,
-    type,
     power,
-    service,
-    category,
-    environment,
-    status,
-    extraDetails,
     refrigerant,
-    active,
+    // type,
+    // service,
+    // category,
+    // environment,
+    // status,
+    // extraDetails,
+    // active,
   } = device;
 
-  const lineDevices = await Device.find({ code: { $regex: line.code } })
-    .sort({ code: -1 })
-    .limit(1);
+  if (!device.code) {
+    const lineDevices = await Device.find({ code: { $regex: line.code } })
+      .sort({ code: -1 })
+      .limit(1);
 
-  const lastCode = lineDevices[0]
-    ? parseInt(lineDevices[0].code.match(/\d+$/)[0])
-    : 0;
+    const lastCode = lineDevices[0]
+      ? parseInt(lineDevices[0].code.match(/\d+$/)[0])
+      : 0;
+
+    device.code =
+      line.code +
+      `-${lastCode < 99 ? `${lastCode < 9 ? "0" : ""}0` : ""}${lastCode + 1}`;
+  }
 
   const servicePoints =
     device.servicePoints[0] && device.servicePoints[0].name
       ? device.servicePoints.map((sp) => sp._id)
       : undefined;
 
-  const newDevice = await Device({
-    code:
-      line.code +
-      `-${lastCode < 99 ? `${lastCode < 9 ? "0" : ""}0` : ""}${lastCode + 1}`,
-    line: line._id,
-    name: device.name.toUpperCase(),
-    regDate: new Date(device.regDate),
-    powerKcal: Number(power),
-    type,
-    service,
-    category,
-    environment,
-    status,
-    extraDetails,
-    refrigerant: (await Refrigerant.findOne({ refrigerante: refrigerant }))._id,
-    servicePoints,
-    active,
-  });
+  const newDevice = await Device(
+    {
+      ...device,
+      line: line._id,
+      name: device.name.toUpperCase(),
+      regDate: new Date(device.regDate),
+      powerKcal: Number(power),
+      refrigerant: (
+        await Refrigerant.findOne({ refrigerante: refrigerant })
+      )._id,
+      servicePoints,
+    }
+
+    // {
+    // code: device.code,
+    // line: line._id,
+    // name: device.name.toUpperCase(),
+    // regDate: new Date(device.regDate),
+    // powerKcal: Number(power),
+    // type,
+    // service,
+    // category,
+    // environment,
+    // status,
+    // extraDetails,
+    // refrigerant: (await Refrigerant.findOne({ refrigerante: refrigerant }))._id,
+    // servicePoints,
+    // active,
+    // }
+  );
   const stored = await newDevice.save();
   const addedDevice = await Device.findById(stored._id)
     .populate("refrigerant")
@@ -241,7 +259,6 @@ async function addNew(device) {
         populate: { path: "plant", select: "name" },
       },
     });
-
   return buildDevice(addedDevice);
 }
 
