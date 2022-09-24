@@ -46,12 +46,12 @@ async function getDates(req, res) {
       .populate("strategy")
       .populate("responsible");
     const dates = await TaskDate.find({ task: tasks.map((task) => task._id) })
-      .populate({ path: "task", populate: { path: "device", select: "code" } })
+      .populate({ path: "task", populate: { path: "device" } })
       .populate({ path: "workOrders", select: "code" });
     let deviceList = [];
     for (let task of tasks) {
-      const { code, name } = task.device;
-      let deviceTask = { code, name };
+      const { code, name, line } = task.device;
+      let deviceTask = { device: { code, name, line } };
       deviceTask.strategy = task.strategy.name;
       deviceTask.responsible = task.responsible
         ? { id: task.responsible.idNumber, name: task.responsible.name }
