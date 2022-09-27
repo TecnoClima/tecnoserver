@@ -5,6 +5,7 @@ const TaskDate = require("../models/TaskDates");
 const Device = require("../models/Device");
 const User = require("../models/User");
 const WorkOrder = require("../models/WorkOrder");
+const userController = require("../controllers/userController");
 
 function buildDate(date) {
   return {
@@ -125,7 +126,8 @@ async function getPlan(req, res) {
   try {
     const year = Number(req.query.year);
     const plantName = req.query.plant;
-    const user = await User.findOne({ username: req.query.user });
+    const token = req.headers.authorization.split(" ")[1];
+    const user = userController.getUserFromToken(token);
     const plant = await Plant.find(plantName ? { name: plantName } : {});
     const strategies = await Strategy.find({
       year,
@@ -204,7 +206,6 @@ async function getPlan(req, res) {
           workOrders: date.workOrders.map((order) => order.code),
         });
     }
-
     res.status(200).send(plan.sort((a, b) => (a.date > b.date ? 1 : -1)));
   } catch (e) {
     res.status(400).send({ error: e.message });

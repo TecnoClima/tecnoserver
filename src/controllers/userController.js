@@ -118,6 +118,13 @@ async function login(req, res) {
   }
 }
 
+function getUserFromToken(token) {
+  return jwt.verify(token, process.env.SECRET_KEY, (err, user) => {
+    if (err) throw new Error("Access denied: Token expired or incorrect");
+    return user;
+  });
+}
+
 async function getUserData(req, res) {
   try {
     const token = req.headers.authorization.split(" ")[1];
@@ -168,7 +175,6 @@ function validateToken(req, res, next) {
 }
 
 async function updateUser(req, res) {
-  console.log("update", req.body.update);
   try {
     const { id, update } = req.body;
     const { idNumber } = req.params;
@@ -252,6 +258,7 @@ async function filterUser(req, res) {
 
 module.exports = {
   validateToken,
+  getUserFromToken,
 
   addUser,
   login,

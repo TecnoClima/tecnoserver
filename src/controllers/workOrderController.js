@@ -193,9 +193,11 @@ async function addOrder(req, res) {
 
     if (workOrder.taskDate)
       await TaskDates.findByIdAndUpdate(workOrder.taskDate, {
-        $push: { workOrders: workOrder._id },
+        $push: { workOrders: newOrder._id },
       });
+
     const order = await getListData(newOrder.code);
+
     res.status(200).send(buildOrder(order));
   } catch (e) {
     console.log(e);
@@ -341,6 +343,40 @@ async function getWObyId(req, res) {
   }
 }
 
+async function newInterventions(interventions, order) {
+  console.log(order);
+  return await Promise.all(
+    interventions.map(async (i) => {
+      const newItem = await Intervention({
+        workOrder: order._id,
+        workers: await User.find({
+          idNumber: i.workers.map((item) => item.id),
+        }),
+        tasks: i.task,
+        date: new Date(`${i.date} ${i.time}`),
+      });
+      const intervention = await newItem.save();
+      if (i.refrigerant) {
+        const gasUsages = [];
+        for await (let cylinder of i.refrigerant) {
+          let item = await Cylinder.findOne({ code: cylinder.code });
+          let user = await User.findOne({ idNumber: cylinder.user });
+
+          const usage = await CylinderUse({
+            cylinder: item._id,
+            intervention: intervention._id,
+            user,
+            consumption: cylinder.total,
+          });
+          gasUsages.push(await usage.save());
+        }
+        intervention.gasUsages = gasUsages;
+        return intervention;
+      }
+    })
+  );
+}
+
 async function getWOList(req, res) {
   try {
     const { plant, year, page } = req.query;
@@ -424,33 +460,74 @@ async function deleteWorkOrder(req, res) {
 async function updateWorkOrder(req, res) {
   try {
     const { code } = req.params;
-    const update = {};
-
-    if (req.body.device)
-      update.device = (await Device.findOne({ code: req.body.device }))._id;
-    if (req.body.class) update.class = req.body.class;
-    if (req.body.issue) update.initIssue = req.body.issue;
-    if (req.body.cause) update.cause = req.body.cause;
-    if (req.body.solicitor) update.solicitor = { name: req.body.solicitor };
-    if (req.body.phone) update.solicitor.phone = req.body.phone;
-    if (req.body.description) update.description = req.body.description;
-    if (req.body.completed) update.completed = Number(req.body.completed);
-    if (req.body.servicePoint)
-      update.servicePoint = (
+    const order = req.body;
+    const existingInterventions = order.interventions.filter((i) => !!i.id);
+    const intervetionsToCreate = order.interventions.filter((i) => !i.id);
+    order.solicitor = { name: order.solicitor };
+    if (order.phone) order.solicitor.phone = order.phone;
+    if (order.device)
+      order.device = (await Device.findOne({ code: order.device }))._id;
+    if (order.supervisor)
+      order.supervisor = (
+        await User.findOne({ idNumber: order.supervisor })
+      )._id;
+    if (order.servicePoint)
+      order.servicePoint = (
         await ServicePoint.findOne({ name: req.body.servicePoint })
       )._id;
-    if (req.body.status) {
-      update.status = req.body.status;
-      if (update.status === "Cerrada") {
-        update.closed = {
+    if (order.status === "Cerrada") {
+      {
+        order.closed = {
           date: new Date(),
-          user: (await User.find({ idNumber: req.body.userId })).id,
+          user: (await User.find({ idNumber: order.userId })).id,
         };
-        update.completed = 100;
+        order.completed = 100;
       }
     }
-    await WorkOrder.updateOne({ code }, update);
-    const stored = await getListData(code);
+    for (let key of ["interventions", "user", "userId"]) delete order[key];
+    await WorkOrder.updateOne({ code }, order);
+    const stored = await WorkOrder.findOne({ code })
+      .populate({
+        path: "device",
+        select: ["code", "name"],
+        populate: {
+          path: "line",
+          select: "name",
+          populate: {
+            path: "area",
+            select: "name",
+            populate: {
+              path: "plant",
+              select: "name",
+            },
+          },
+        },
+      })
+      .populate({ path: "registration", populate: "user" })
+      .populate({ path: "supervisor", select: ["id", "name"] })
+      .populate("servicePoint");
+
+    const addedInterventions = intervetionsToCreate[0]
+      ? await newInterventions(intervetionsToCreate, stored)
+      : undefined;
+    console.log(addedInterventions);
+
+    if (order.taskDate) {
+      const newTaskDate = await TaskDates.findById(order.taskDate);
+      const orderTaskDate = await TaskDates.findOne({ workOrders: stored._id });
+      if (JSON.stringify(newTaskDate) !== JSON.stringify(orderTaskDate._id)) {
+        await TaskDates.findByIdAndUpdate(orderTaskDate._id, {
+          $pull: { workOrders: stored._id },
+        });
+        await TaskDates.findByIdAndUpdate(newTaskDate._id, {
+          $push: { workOrders: stored._id },
+        });
+      }
+    }
+    stored.interventions = existingInterventions.concat(
+      addedInterventions || []
+    );
+    stored.taskDate = await TaskDates.findOne({ workOrders: stored._id });
     res.status(200).send(buildOrder(stored));
   } catch (e) {
     console.log(e);
