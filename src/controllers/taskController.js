@@ -7,14 +7,16 @@ const WorkOrder = require("../models/WorkOrder");
 const TaskDates = require("../models/TaskDates");
 
 async function setTasks(req, res) {
+  console.log("req.body", req.body);
   let results = { created: [], errors: [] };
   try {
     // get body data
     const { device } = req.body;
-    const { year, name, frequency, cost, observations } = req.body.program;
+    const { program } = req.body;
+    const { year, name, frequency, cost, observations } = program;
     // build task data
     const data = { year, name, frequency, observations };
-    const plant = await Plant.findOne({ name: req.body.program.plant });
+    const plant = await Plant.findOne({ name: program.plant });
     const strategies = (await Strategy.find({ year, plant: plant._id })).map(
       (strategy) => strategy._id
     );
@@ -107,6 +109,7 @@ async function setTasks(req, res) {
           : undefined,
       },
     };
+    console.log(results);
     res.status(200).send(results);
   } catch (e) {
     console.log(e);

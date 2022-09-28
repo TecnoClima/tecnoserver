@@ -510,7 +510,6 @@ async function updateWorkOrder(req, res) {
     const addedInterventions = intervetionsToCreate[0]
       ? await newInterventions(intervetionsToCreate, stored)
       : undefined;
-    console.log(addedInterventions);
 
     if (order.taskDate) {
       const newTaskDate = await TaskDates.findById(order.taskDate);
