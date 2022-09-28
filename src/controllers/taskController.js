@@ -7,7 +7,6 @@ const WorkOrder = require("../models/WorkOrder");
 const TaskDates = require("../models/TaskDates");
 
 async function setTasks(req, res) {
-  console.log("req.body", req.body);
   let results = { created: [], errors: [] };
   try {
     // get body data
@@ -109,7 +108,6 @@ async function setTasks(req, res) {
           : undefined,
       },
     };
-    console.log(results);
     res.status(200).send(results);
   } catch (e) {
     console.log(e);
