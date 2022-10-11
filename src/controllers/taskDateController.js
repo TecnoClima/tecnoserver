@@ -128,11 +128,13 @@ async function getPlan(req, res) {
     const plantName = req.query.plant;
     const token = req.headers.authorization.split(" ")[1];
     const user = userController.getUserFromToken(token);
+    console.log("user", user);
     const plant = await Plant.find(plantName ? { name: plantName } : {});
     const strategies = await Strategy.find({
       year,
       plant: plant.map((plant) => plant._id),
     });
+
     const tasks = await Task.find({ strategy: strategies.map((s) => s._id) });
     const dates = await TaskDate.find({
       task: tasks.map((task) => task._id),
@@ -171,13 +173,13 @@ async function getPlan(req, res) {
     for (let date of dates) {
       if (
         user &&
-        !(
+        (user.access === "Admin" ||
           (user.access === "Worker" &&
+            date.task.responsible &&
             date.task.responsible.idNumber !== user.idNumber) ||
           (user.access === "Supervisor" &&
-            date.task.strategy.supervisor.idNumber !== user.idNumber)
-        )
-      )
+            date.task.strategy.supervisor.idNumber !== user.idNumber))
+      ) {
         plan.push({
           id: date._id,
           plant: plantName,
@@ -205,9 +207,11 @@ async function getPlan(req, res) {
             : 0,
           workOrders: date.workOrders.map((order) => order.code),
         });
+      }
     }
     res.status(200).send(plan.sort((a, b) => (a.date > b.date ? 1 : -1)));
   } catch (e) {
+    console.log(e);
     res.status(400).send({ error: e.message });
   }
 }
