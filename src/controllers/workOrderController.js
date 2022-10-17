@@ -132,8 +132,10 @@ async function addOrder(req, res) {
   try {
     const workOrder = req.body;
     const sp = await ServicePoint.findOne({ name: workOrder.servicePoint });
+    const lastOrder = await WorkOrder.findOne({}, {}, { sort: { code: -1 } });
+    const code = lastOrder ? lastOrder.code + 1 : 10000;
     const newOrder = await WorkOrder({
-      code: (await WorkOrder.findOne({}, {}, { sort: { code: -1 } })).code + 1,
+      code,
       device: (await Device.findOne({ code: workOrder.device }))._id,
       status: "Abierta",
       class: workOrder.class,
