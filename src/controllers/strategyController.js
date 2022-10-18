@@ -116,8 +116,8 @@ async function getStrategies(req, res) {
 }
 
 async function deleteStrategy(req, res) {
+  const { id } = req.query;
   try {
-    const { id } = req.query;
     // const { year, name } = req.body;
     // const plant = await Plant.findOne({ name: req.body.plant })._id;
     const strategy = await Strategy.findById(id);
