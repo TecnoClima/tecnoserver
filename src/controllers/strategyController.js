@@ -32,7 +32,9 @@ async function createStrategy(req, res) {
     const supervisor = await User.findOne({
       idNumber: Number(req.body.supervisor),
     });
+    console.log("people", people);
     const workers = await User.find({ idNumber: people });
+    console.log("workers", workers.length);
     const data = {
       plant,
       year,

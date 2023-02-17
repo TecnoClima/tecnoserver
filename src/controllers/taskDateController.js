@@ -128,7 +128,6 @@ async function getPlan(req, res) {
     const plantName = req.query.plant;
     const token = req.headers.authorization.split(" ")[1];
     const user = userController.getUserFromToken(token);
-    console.log("user", user);
     const plant = await Plant.find(plantName ? { name: plantName } : {});
     const strategies = await Strategy.find({
       year,
@@ -170,6 +169,7 @@ async function getPlan(req, res) {
       },
     ]);
     let plan = [];
+    i = 0;
     for (let date of dates) {
       if (
         user &&

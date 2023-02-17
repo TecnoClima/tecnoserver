@@ -536,67 +536,27 @@ async function updateData() {
   // edit this for extra manipulation or errors as need.
   results = { success: [], errors: [] };
 
-  // const devices = await Device.find({});
-  // try {
-  //   for await (let device of devices) {
-  //     if ((device.power && device.power.magnitude) || device.power.unit)
-  //       await Device.updateOne(
-  //         { _id: device._id },
-  //         { powerKcal: device.power.magnitude }
-  //       );
+  // const orders = await WorkOrder.find({}).sort({
+  //   createdAt: -1,
+  // });
+  // const codes = orders.map((o) => o.code);
+  // await Promise.all(
+  //   codes.map(
+  //     async (code) =>
+  //       await WorkOrder.updateOne({ code: code }, { code: code - 648000 })
+  //   )
+  // );
+  // const newOrders = await WorkOrder.find({}).sort({
+  //   createdAt: -1,
+  // });
+  // for (let order of newOrders) {
+  //   if (order.code > 99999) {
+  //     results.success.push(order.code);
+  //   } else {
+  //     results.errors.push(order.code);
   //   }
-  //   results.success.push({ powerKcal: "success" });
-  // } catch (e) {
-  //   results.errors.push({ powerKcal: e.message });
-  //   console.log(e.message);
   // }
-
-  // try {
-  //   await Device.updateMany({}, { $unset: { power: "" } });
-  //   results.success.push({ removePower: "success" });
-  // } catch (e) {
-  //   results.errors.push({ removePower: e.message });
-  // }
-
-  // const servicePoints = await ServicePoint.find({});
-  // try {
-  //   await Promise.all(
-  //     servicePoints.map(async (sp) => {
-  //       await ServicePoint.updateOne(
-  //         { _id: sp._id },
-  //         {
-  //           insalubrity: sp.insalubridad || false,
-  //           steelMine: sp.aceria || false,
-  //           calory: sp.caloria || false,
-  //           dangerTask: sp.tareaPeligrosa || false,
-  //         }
-  //       );
-  //     })
-  //   );
-  //   results.success.push({ moveToAdditionalsInEnglish: "success" });
-  // } catch (e) {
-  //   console.log(e.message);
-  //   results.errors.push({ moveToAdditionalsInEnglish: e.message });
-  // }
-
-  // try {
-  //   await ServicePoint.updateMany(
-  //     {},
-  //     {
-  //       $unset: {
-  //         insalubridad: "",
-  //         aceria: "",
-  //         tareaPeligrosa: "",
-  //         caloria: "",
-  //       },
-  //     }
-  //   );
-  //   results.success.push({ removingSpanishAdditionals: "success" });
-  // } catch (e) {
-  //   console.log(e.message);
-  //   results.errors.push({ removingSpanishAdditionals: e.message });
-  // }
-
+  // console.log("results", results);
   return results;
 }
 
