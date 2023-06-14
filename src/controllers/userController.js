@@ -149,11 +149,15 @@ function generateAccessToken(user) {
 }
 
 function validateToken(req, res, next) {
+  const { method } = req;
+  const url = req.url.split("?")[0];
+  const authEndpoint = "/users/auth";
+  const publicGetEndpoints = ["/devices/id", "/devices/history"];
+
   try {
     if (
-      req.url !== "/users/auth" ||
-      (req.method === "GET" &&
-        ["/plants", "/areas", "/lines"].includes(req.url))
+      (url !== authEndpoint && !publicGetEndpoints.includes(url)) ||
+      (method === "GET" && ["/plants", "/areas", "/lines"].includes(url))
     ) {
       const accessToken = req.headers.authorization.split(" ")[1];
       if (!accessToken) res.status(400).send({ error: "Access Denied" });

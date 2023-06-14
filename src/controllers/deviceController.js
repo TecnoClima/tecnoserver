@@ -10,8 +10,6 @@ const Refrigerant = require("../models/Refrigerant");
 const spController = require("../controllers/servicePointController");
 const ServicePoint = require("../models/ServicePoint");
 const mongoose = require("mongoose");
-const { send } = require("express/lib/response");
-const { findOne } = require("../models/Plant");
 
 function buildDevice(device, line, area, plant) {
   const today = new Date();
