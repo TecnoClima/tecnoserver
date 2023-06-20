@@ -143,7 +143,6 @@ async function postUsage(req, res) {
 }
 
 async function createCylinder(req, res) {
-  console.log(req.body);
   try {
     const { code, refrigerant, initialStock, assignedTo, status } = req.body;
 
@@ -163,8 +162,6 @@ async function createCylinder(req, res) {
 }
 
 async function updateCylinder(req, res) {
-  console.log("req.query", req.query);
-  console.log("req.body", req.body);
   try {
     const { id, assignedTo, status, initialStock, code } = req.body;
     const cylinder = await Cylinder.findById(id);
@@ -278,7 +275,6 @@ async function deleteCylinderUsage(req, res) {
       ids.push(use._id);
       await CylinderUse.findByIdAndDelete(use._id);
     }
-    console.log("codes", codes);
     const date = new Date();
     const time =
       date.toLocaleDateString() +

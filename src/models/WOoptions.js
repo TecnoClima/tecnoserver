@@ -3,26 +3,34 @@ const Schema = mongoose.Schema;
 
 const WorkOrderOptionsSchema = Schema(
   {
-    name:{
+    name: {
       type: String,
-      autoPopulate: true
+      autoPopulate: true,
     },
-    status:[{
-      type: String,
-      autoPopulate: true
-      }],
-    classes:[{
-      type: String,
-      autoPopulate: true
-    }],
-    issueType:[{
-      type: String,
-      autoPopulate: true
-    }],
-    causes:[{
-        name: {type: String, autoPopulate: true},
-        macro: {type: String, autoPopulate: true},
-      }],                   
+    status: [
+      {
+        type: String,
+        autoPopulate: true,
+      },
+    ],
+    classes: [
+      {
+        type: String,
+        autoPopulate: true,
+      },
+    ],
+    issueType: [
+      {
+        type: String,
+        autoPopulate: true,
+      },
+    ],
+    causes: [
+      {
+        name: { type: String, autoPopulate: true },
+        macro: { type: String, autoPopulate: true },
+      },
+    ],
   },
   {
     timestamps: true,

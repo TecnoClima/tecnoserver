@@ -30,6 +30,7 @@ function buildSP(sp) {
 const getAll = async (plantName) => {
   try {
     const plant = await Plant.findOne({ name: plantName });
+
     let spList = await ServicePoint.find({}).populate({
       path: "line",
       select: ["name", "_id"],
@@ -46,6 +47,7 @@ const getAll = async (plantName) => {
       spList = spList.filter((sp) => sp.line.area.plant.name === plant.name);
     return spList.map(buildSP);
   } catch (e) {
+    console.log(e);
     return { error: e.message };
   }
 };
@@ -96,7 +98,6 @@ async function servicePointsByLine(req, res) {
 }
 
 async function addSPFromApp(req, res) {
-  console.log(req.body);
   let errors = [];
   try {
     let { servicePoints } = req.body;
@@ -113,17 +114,12 @@ async function addSPFromApp(req, res) {
     });
     // get lines
     let line;
-    try {
-      line =
-        servicePoints.length === 1 &&
-        (await Line.findById(servicePoints[0].line));
-    } catch (e) {
-      line = undefined;
-    }
+    if (servicePoints.length === 1)
+      line = await Line.findById(servicePoints[0].line);
     const lines = line
       ? [line]
       : await Line.find({
-          name: { $in: servicePoints.map((sp) => sp.line) },
+          _id: { $in: servicePoints.map((sp) => sp.line) },
         }).populate({
           path: "area",
           select: "name",
@@ -188,7 +184,7 @@ async function addSPFromApp(req, res) {
         const newSP = await ServicePoint({
           ...sp,
           line: sp.line._id,
-          name: sp.servicePoint,
+          name: sp.name,
         });
         // save the item
         return await newSP.save();

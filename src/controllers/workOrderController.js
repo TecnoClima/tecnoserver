@@ -2,7 +2,6 @@ const WorkOrder = require("../models/WorkOrder");
 const Device = require("../models/Device");
 const WOoptions = require("../models/WOoptions");
 const Line = require("../models/Line");
-const Area = require("../models/Area");
 const User = require("../models/User");
 const Plant = require("../models/Plant");
 const ServicePoint = require("../models/ServicePoint");
@@ -76,17 +75,27 @@ async function getMostRecent(req, res) {
       .sort({ "registration.date": -1 })
       .limit(limit || 10)
       .lean()
-      .populate({ path: "device", model: Device })
+      .populate({
+        path: "device",
+        populate: {
+          path: "line",
+          select: "name",
+          populate: {
+            path: "area",
+            select: "name",
+            populate: { path: "plant", select: "name" },
+          },
+        },
+      })
       .exec();
     let otArray = [];
-    for await (let ot of otList) {
-      const line = await Line.findOne({ _id: ot.device.line }).lean().exec();
+    otList.forEach((ot) => {
       const element = {
         code: ot.code,
         status: ot.status,
         device: ot.device.name,
-        line: line.name,
-        area: (await Area.findOne({ lines: line._id }).lean().exec()).name,
+        line: ot.device.line.name,
+        area: ot.device.line.area.name,
         description: ot.description,
         initIssue: ot.initIssue,
         solicitor: ot.solicitor,
@@ -99,9 +108,10 @@ async function getMostRecent(req, res) {
           : "",
       };
       otArray.push(element);
-    }
+    });
     res.status(200).send(otArray);
   } catch (e) {
+    console.log(e.message);
     res.status(400).send({ error: e.message });
   }
 }

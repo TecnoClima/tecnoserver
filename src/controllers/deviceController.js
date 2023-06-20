@@ -15,8 +15,6 @@ function buildDevice(device, line, area, plant) {
   const today = new Date();
   const regDate = new Date(device.regDate);
 
-  // console.log("device", device, "line", line);
-
   return {
     plant: device.line.name ? device.line.area.plant.name : plant,
     area: device.line.area ? device.line.area.name : area,
@@ -165,9 +163,21 @@ async function fullDeviceOptions(req, res) {
     const options = await DeviceOptions.findOne({});
     const gases = await Refrigerant.find({});
     const { types, service, status, category, environment } = options;
-
+    //revisar:
+    const plant = await Plant.find({}).select(["code", "name", "id"]);
+    const area = await Area.find({}).select(["code", "name", "plant", "id"]);
+    const line = await Line.find({}).select(["code", "name", "area", "id"]);
+    const spList = await ServicePoint.find({}).select([
+      "code",
+      "name",
+      "line",
+      "_id",
+    ]);
     res.status(200).send({
-      // locationMap : await spController.locationMap(req.query.plant),
+      plant,
+      area,
+      line,
+      spList,
       locations: await spController.getAll(req.query.plant),
       type: types,
       refrigerant: gases.map((gas) => gas.refrigerante),
@@ -177,6 +187,7 @@ async function fullDeviceOptions(req, res) {
       status,
     });
   } catch (e) {
+    console.log(e);
     res.status(400).send({ error: e.message });
   }
 }

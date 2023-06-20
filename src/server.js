@@ -9,9 +9,11 @@ const routes = require("./routes/index.js");
 const user = require("./controllers/userController");
 
 // To create log file
-const fs = require('fs')
-const path = require('path')
-var accessLogStream = fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' })
+const fs = require("fs");
+const path = require("path");
+var accessLogStream = fs.createWriteStream(path.join(__dirname, "access.log"), {
+  flags: "a",
+});
 
 const server = express();
 
@@ -43,7 +45,7 @@ server.use("/public", express.static(`${__dirname}/storage/imgs`));
 
 server.use(cookieParser("secret"));
 // server.use(morgan("dev"));
-server.use(morgan('combined', { stream: accessLogStream }))
+server.use(morgan("combined", { stream: accessLogStream }));
 
 server.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", CLIENT_URL);

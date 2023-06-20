@@ -79,13 +79,12 @@ async function buildExcel(req, res) {
   );
 
   let element = await model.findOne({}).populate(fields);
-  // console.log('tree', model.schema.tree);
 
   const structure = fields.map((field) => {
     let example = element[field];
     let type = typeof example;
     let shortType = "";
-    // console.log(field, type);
+
     if (type === "object") {
       if (Object.prototype.toString.call(element[field]) === "[object Date]") {
         shortType = "date";
@@ -105,7 +104,6 @@ async function buildExcel(req, res) {
     return [{ [field]: type }, { [field]: example }];
   });
 
-  console.log([structure.map((e) => e[0]), structure.map((e) => e[1])]);
   const ws = XLSX.utils.json_to_sheet(
     [structure.map((e) => e[0]), structure.map((e) => e[1])].flat(1)
   );
