@@ -114,19 +114,36 @@ async function addSPFromApp(req, res) {
     });
     // get lines
     let line;
-    if (servicePoints.length === 1)
-      line = await Line.findById(servicePoints[0].line);
-    const lines = line
-      ? [line]
-      : await Line.find({
-          _id: { $in: servicePoints.map((sp) => sp.line) },
-        }).populate({
+    console.log(servicePoints[0]?.line);
+    if (servicePoints.length === 1) {
+      line = await Line.findOne({ name: servicePoints[0].line }).populate({
+        path: "area",
+        select: "name",
+        populate: { path: "plant", select: "name" },
+      });
+      if (!line)
+        line = await Line.findById(servicePoints[0].line).populate({
           path: "area",
           select: "name",
           populate: { path: "plant", select: "name" },
         });
+    }
+    const lines = line
+      ? [line]
+      : await Line.find(
+          typeof servicePoints[0]?.line === "string"
+            ? { name: { $in: servicePoints.map((sp) => sp.line) } }
+            : { _id: { $in: servicePoints.map((sp) => sp.line) } }
+        ).populate({
+          path: "area",
+          select: "name",
+          populate: { path: "plant", select: "name" },
+        });
+    console.log("lines", lines);
+
     // check for errors
     for (let sp of servicePoints) {
+      console.log("sp", sp);
       let error = "";
       const line = lines.find(
         (l) =>
@@ -184,7 +201,7 @@ async function addSPFromApp(req, res) {
         const newSP = await ServicePoint({
           ...sp,
           line: sp.line._id,
-          name: sp.name,
+          name: sp.name || sp.servicePoint,
         });
         // save the item
         return await newSP.save();

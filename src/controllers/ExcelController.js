@@ -47,6 +47,7 @@ async function loadFromExcel(req, res) {
               const newItem = await deviceController.addNew(item);
               addedItems.push(newItem);
             } catch (e) {
+              console.log(e);
               errors.push({
                 code: item.code,
                 error: e.message,

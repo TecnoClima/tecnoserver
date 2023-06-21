@@ -224,7 +224,7 @@ async function addNew(device) {
     device.servicePoints[0] && device.servicePoints[0].name
       ? device.servicePoints.map((sp) => sp._id)
       : undefined;
-
+  const gas = await Refrigerant.findOne({ refrigerante: refrigerant });
   const newDevice = await Device(
     {
       ...device,
@@ -232,9 +232,7 @@ async function addNew(device) {
       name: device.name.toUpperCase(),
       regDate: new Date(device.regDate),
       powerKcal: Number(power),
-      refrigerant: (
-        await Refrigerant.findOne({ refrigerante: refrigerant })
-      )._id,
+      refrigerant: gas._id,
       servicePoints,
     }
 

@@ -1,25 +1,28 @@
 require("dotenv").config();
-const telegramBot = require('node-telegram-bot-api');
-const {BOT_TOKEN,BOT_URL,BOT_PARSE_MODE} = process.env; 
+const telegramBot = require("node-telegram-bot-api");
+const { BOT_TOKEN, BOT_URL, BOT_PARSE_MODE } = process.env;
 
-const bot = new telegramBot(BOT_TOKEN, {polling: true});
+const bot = new telegramBot(BOT_TOKEN, { polling: true });
 
-bot.onText(/^\/start/, function(msg){
-    console.log(msg);
-    var chatId = msg.chat.id;
-    var userName = msg.from.username;
-    bot .sendMessage(chatId,"Hola, "+userName+". soy el bot de Tecnoclima, minombre es TecnoBot");
+bot.onText(/^\/start/, function (msg) {
+  console.log(msg);
+  var chatId = msg.chat.id;
+  var userName = msg.from.username;
+  bot.sendMessage(
+    chatId,
+    "Hola, " + userName + ". soy el bot de Tecnoclima, minombre es TecnoBot"
+  );
 });
 
-bot.on('message', function(msg){
-    console.log(msg);
-    var chatId = msg.chat.id;
-    var text = msg.text;
-    if(text.includes("hola")){
-        bot.sendMessage(chatId, 'hola de nuevo, '+msg.from.username+'!');
-    }else{
-    bot.sendMessage(chatId, 'Procesando tu mensaje');
-    }
+bot.on("message", function (msg) {
+  console.log(msg);
+  var chatId = msg.chat.id;
+  var text = msg.text;
+  if (text.includes("hola")) {
+    bot.sendMessage(chatId, "hola de nuevo, " + msg.from.username + "!");
+  } else {
+    bot.sendMessage(chatId, "Procesando tu mensaje");
+  }
 });
 
 // bot.on('rrss',(ctx)=>{
@@ -40,5 +43,5 @@ bot.on('message', function(msg){
 // });
 
 module.exports = {
-    bot
+  bot,
 };
