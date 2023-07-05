@@ -11,7 +11,7 @@ const interventionRoutes = require("./interventions");
 const cylinderRoutes = require("./cylinders");
 const strategiesRoutes = require("./strategies");
 const taskRoutes = require("./tasks");
-const csvRoutes = require("../loadFromCsv/csvRoutes");
+const csvRoutes = require("./loadFromCsv/csvRoutes");
 const datesRoutes = require("./dates");
 const excelRoutes = require("./excel");
 
