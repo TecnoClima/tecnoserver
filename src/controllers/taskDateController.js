@@ -3,7 +3,6 @@ const Strategy = require("../models/Strategy");
 const Task = require("../models/Task");
 const TaskDate = require("../models/TaskDates");
 const Device = require("../models/Device");
-const User = require("../models/User");
 const WorkOrder = require("../models/WorkOrder");
 const userController = require("../controllers/userController");
 
@@ -124,10 +123,16 @@ async function addDates(req, res) {
 
 async function getPlan(req, res) {
   try {
+    const user = await userController.getFullUserFromToken(req);
+    let plantName = "";
+    if (user.access !== "Admin") {
+      if (user.plant) {
+        plantName = user.plant.name;
+      } else {
+        throw new Error("Usuario no asignado a ninguna planta");
+      }
+    }
     const year = Number(req.query.year);
-    const plantName = req.query.plant;
-    const token = req.headers.authorization.split(" ")[1];
-    const user = userController.getUserFromToken(token);
     const plant = await Plant.find(plantName ? { name: plantName } : {});
     const strategies = await Strategy.find({
       year,

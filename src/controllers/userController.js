@@ -118,11 +118,21 @@ async function login(req, res) {
   }
 }
 
-function getUserFromToken(token) {
+function getUserFromToken(req) {
+  const token = req.headers.authorization.split(" ")[1];
   return jwt.verify(token, process.env.SECRET_KEY, (err, user) => {
     if (err) throw new Error("Access denied: Token expired or incorrect");
     return user;
   });
+}
+
+async function getFullUserFromToken(req) {
+  const token = req.headers.authorization.split(" ")[1];
+  const data = jwt.verify(token, process.env.SECRET_KEY, (err, user) => {
+    if (err) throw new Error("Access denied: Token expired or incorrect");
+    return user;
+  });
+  return await User.findOne({ idNumber: data.id }).populate("plant");
 }
 
 async function getUserData(req, res) {
@@ -263,6 +273,7 @@ async function filterUser(req, res) {
 module.exports = {
   validateToken,
   getUserFromToken,
+  getFullUserFromToken,
 
   addUser,
   login,

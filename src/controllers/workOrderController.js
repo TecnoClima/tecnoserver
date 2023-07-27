@@ -1,9 +1,7 @@
 const WorkOrder = require("../models/WorkOrder");
 const Device = require("../models/Device");
 const WOoptions = require("../models/WOoptions");
-const Line = require("../models/Line");
 const User = require("../models/User");
-const Plant = require("../models/Plant");
 const ServicePoint = require("../models/ServicePoint");
 const Cylinder = require("../models/Cylinder");
 const CylinderUse = require("../models/CylinderUse");
@@ -11,6 +9,7 @@ const Intervention = require("../models/Intervention");
 const TaskDates = require("../models/TaskDates");
 
 const devController = require("./deviceController");
+const userController = require("./userController");
 
 function buildOrder(order) {
   return {
@@ -391,9 +390,17 @@ async function newInterventions(interventions, order) {
 
 async function getWOList(req, res) {
   try {
-    const { plant, year, page } = req.query;
+    const user = await userController.getFullUserFromToken(req);
     const filters = {};
-    if (plant) filters.plant = (await Plant.findOne({ name: plant }))._id;
+    const { year } = req.query;
+    let plantName = "";
+    if (user.access !== "Admin") {
+      if (user.plant) {
+        plantName = user.plant.name;
+      } else {
+        throw new Error("Usuario no asignado a ninguna planta");
+      }
+    }
     if (year)
       filters["registration.date"] = {
         $gte: new Date(`${year}/01/01`),
@@ -422,24 +429,28 @@ async function getWOList(req, res) {
       .populate("servicePoint")
       .sort("code");
 
-    const array = workOrders.map((order) => {
-      return {
-        code: order.code,
-        class: order.class,
-        status: order.status,
-        devCode: order.device.code,
-        devName: order.device.name,
-        line: order.device.line.name,
-        area: order.device.line.area.name,
-        plant: order.device.line.area.plant.name,
-        solicitor: order.solicitor.name,
-        date: order.registration.date,
-        supervisor: order.supervisor && order.supervisor.name,
-        close: order.closed.date || "",
-        description: order.description,
-        servicePoint: order.servicePoint && order.servicePoint.name,
-      };
-    });
+    const array = workOrders
+      .filter((wo) =>
+        plantName ? wo.device?.line?.area?.plant?.name === plantName : true
+      )
+      .map((order) => {
+        return {
+          code: order.code,
+          class: order.class,
+          status: order.status,
+          devCode: order.device.code,
+          devName: order.device.name,
+          line: order.device.line.name,
+          area: order.device.line.area.name,
+          plant: order.device.line.area.plant.name,
+          solicitor: order.solicitor.name,
+          date: order.registration.date,
+          supervisor: order.supervisor && order.supervisor.name,
+          close: order.closed.date || "",
+          description: order.description,
+          servicePoint: order.servicePoint && order.servicePoint.name,
+        };
+      });
     res.status(200).send(array.sort((a, b) => (a.code < b.code ? 1 : -1)));
   } catch (e) {
     console.log(e);

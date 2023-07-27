@@ -114,7 +114,6 @@ async function addSPFromApp(req, res) {
     });
     // get lines
     let line;
-    console.log(servicePoints[0]?.line);
     if (servicePoints.length === 1) {
       line = await Line.findOne({ name: servicePoints[0].line }).populate({
         path: "area",
@@ -139,11 +138,9 @@ async function addSPFromApp(req, res) {
           select: "name",
           populate: { path: "plant", select: "name" },
         });
-    console.log("lines", lines);
 
     // check for errors
     for (let sp of servicePoints) {
-      console.log("sp", sp);
       let error = "";
       const line = lines.find(
         (l) =>

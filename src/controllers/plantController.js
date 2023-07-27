@@ -1,5 +1,6 @@
 const Area = require("../models/Area");
 const Plant = require("../models/Plant");
+const userController = require("./userController");
 
 async function addNew(name, code) {
   const checkPlant = await Plant.find({ $or: [{ name }, { code }] })
@@ -17,10 +18,11 @@ async function addNew(name, code) {
 async function getByName(name) {
   return await Plant.findOne({ name: name });
 }
-async function getPlant(args = {}) {
-  const { code, name } = args;
+
+async function getPlant(args) {
+  const { code, name } = args || {};
   if (code || name) {
-    return await Plant.findOne(code ? { code } : name);
+    return await Plant.findOne(code ? { code } : { name });
   } else {
     return await Plant.find(code ? { code } : name ? { name } : {});
   }
@@ -28,13 +30,18 @@ async function getPlant(args = {}) {
 //*************** FOR ENDPOINTS ***************/
 async function getPlants(req, res) {
   try {
+    let plantName = "";
+    if (req.headers.authorization) {
+      const user = await userController.getFullUserFromToken(req);
+      if (user.access !== "Admin") {
+        plantName = user.plant.name;
+      }
+    }
     const { code, name } = req.query;
     let result;
-    if (code || name) {
-      result = await getPlant(code ? { code } : { name });
-    } else {
-      result = await getPlant({});
-    }
+    result = await getPlant(
+      code ? { code } : plantName ? { name: plantName } : name ? { name } : {}
+    );
     res.status(200).send(result);
   } catch (e) {
     res.status(400).send({ error: e.message });

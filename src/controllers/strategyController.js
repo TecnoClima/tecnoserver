@@ -2,6 +2,7 @@ const User = require("../models/User");
 const Plant = require("../models/Plant");
 const Strategy = require("../models/Strategy");
 const Task = require("../models/Task");
+const userController = require("../controllers/userController");
 
 function buildStrategy(strategy) {
   let { _id, name, year, description } = strategy;
@@ -99,9 +100,18 @@ async function updateStrategy(req, res) {
 async function getStrategies(req, res) {
   try {
     const { year } = req.query;
-    const plant = (
-      await Plant.find(req.query.plant ? { name: req.query.plant } : {})
-    ).map((plant) => plant._id);
+    const user = await userController.getFullUserFromToken(req);
+    let plantName = "";
+    if (user.access !== "Admin") {
+      if (user.plant) {
+        plantName = user.plant.name;
+      } else {
+        throw new Error("Usuario no asignado a ninguna planta");
+      }
+    }
+    const plant = (await Plant.find(plantName ? { name: plantName } : {})).map(
+      (plant) => plant._id
+    );
     const filters = { plant };
     if (year) filters.year = year;
     const strategies = await Strategy.find(filters).populate([

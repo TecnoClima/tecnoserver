@@ -9,6 +9,8 @@ const WorkOrder = require("../models/WorkOrder");
 const Refrigerant = require("../models/Refrigerant");
 const spController = require("../controllers/servicePointController");
 const ServicePoint = require("../models/ServicePoint");
+const userController = require("./userController");
+
 const mongoose = require("mongoose");
 
 function buildDevice(device, line, area, plant) {
@@ -73,8 +75,16 @@ async function getDevice(id) {
 
 async function allDevices(req, res) {
   try {
-    const name = req.query.plant;
-    const plant = name && (await Plant.findOne({ name }));
+    const user = await userController.getFullUserFromToken(req);
+    let plantName = "";
+    if (user.access !== "Admin") {
+      if (user.plant) {
+        plantName = user.plant.name;
+      } else {
+        throw new Error("Usuario no asignado a ninguna planta");
+      }
+    }
+    const plant = plantName && (await Plant.findOne({ name: plantName }));
     let lines = await Line.find({}).populate({
       path: "area",
       select: ["name", "plant"],
