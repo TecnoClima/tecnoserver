@@ -160,11 +160,10 @@ function generateAccessToken(user) {
 
 function validateToken(req, res, next) {
   const { method } = req;
-  const url = req.url.split("?")[0];
-  const authEndpoint = "/users/auth";
-  const publicGetEndpoints = ["/devices/id", "/devices/history"];
-
   try {
+    const url = req.url.split("?")[0];
+    const authEndpoint = "/users/auth";
+    const publicGetEndpoints = ["/devices/id", "/devices/history"];
     if (
       (url !== authEndpoint && !publicGetEndpoints.includes(url)) ||
       (method === "GET" && ["/plants", "/areas", "/lines"].includes(url))
@@ -184,6 +183,7 @@ function validateToken(req, res, next) {
       next();
     }
   } catch (e) {
+    console.log(e);
     res.status(400).send({ error: e.message });
   }
 }

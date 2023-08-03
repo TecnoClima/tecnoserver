@@ -43,7 +43,7 @@ async function loadFromExcel(req, res) {
                 item.servicePoints.includes(sp.name)
               );
               item.regDate = new Date(item.regDate);
-              item.active = item.active === "Si";
+              item.active = item.active.toLowerCase() === "si";
               const newItem = await deviceController.addNew(item);
               addedItems.push(newItem);
             } catch (e) {

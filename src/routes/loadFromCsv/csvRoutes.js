@@ -143,7 +143,9 @@ server.post("/interventions", async (req, res) => {
   }
 });
 
-module.exports = server;
+server.get("/", async (req, res) => {
+  res.send("no updates");
+});
 
 server.post("/", async (req, res) => {
   try {
@@ -166,7 +168,7 @@ server.post("/", async (req, res) => {
     // add mayuda user. check hour and descriptions not startin with "="
 
     // results.push(await loadOTfromCsv());
-    results.push(await loadInterventionFromCsv());
+    // results.push(await loadInterventionFromCsv());
 
     // consumos de gases
 
