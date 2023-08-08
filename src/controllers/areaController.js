@@ -77,7 +77,10 @@ async function addAreaFromApp(req, res) {
 
 async function getAreas(req, res) {
   try {
-    const areas = await Area.find({}).lean().exec();
+    const plants = await plantController.getUsersPlants(req);
+    const areas = await Area.find({ plant: plants.map((p) => p._id) })
+      .lean()
+      .exec();
     res.status(200).send(areas);
   } catch (e) {
     res.status(400).send({ error: e.message });

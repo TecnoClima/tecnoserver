@@ -1,13 +1,10 @@
 const Line = require("../models/Line");
 const ServicePoint = require("../models/ServicePoint");
+const plantController = require("../controllers/plantController");
 
 const mongoose = require("mongoose");
 const Plant = require("../models/Plant");
-const Area = require("../models/Area");
-
-const lineController = require("../controllers/lineController");
 const Device = require("../models/Device");
-const { locationOptions } = require("./plantController");
 
 function buildSP(sp) {
   const { code, name, gate, insalubrity, steelMine, calory, dangerTask } = sp;
@@ -29,7 +26,7 @@ function buildSP(sp) {
 
 const getAll = async (plantName) => {
   try {
-    const plant = await Plant.findOne({ name: plantName });
+    const plants = await Plant.find({ name: plantName });
 
     let spList = await ServicePoint.find({}).populate({
       path: "line",
@@ -43,8 +40,10 @@ const getAll = async (plantName) => {
         },
       },
     });
-    if (plant)
-      spList = spList.filter((sp) => sp.line.area.plant.name === plant.name);
+    if (plants)
+      spList = spList.filter((sp) =>
+        plants.map((p) => p.name).includes(sp.line.area.plant.name)
+      );
     return spList.map(buildSP);
   } catch (e) {
     console.log(e);
@@ -54,8 +53,12 @@ const getAll = async (plantName) => {
 
 const getServicePoints = async (req, res) => {
   try {
-    res.status(200).send(await getAll(req.query.plant));
+    const plants = await plantController.getUsersPlants(req);
+    res
+      .status(200)
+      .send(await getAll(req.query.plant || plants.map((p) => p.name)));
   } catch (e) {
+    console.log(e);
     res.status(400).send(await getAll(req.query.plant));
   }
 };

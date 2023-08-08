@@ -159,6 +159,10 @@ async function getPlan(req, res) {
               populate: {
                 path: "area",
                 select: "name",
+                populate: {
+                  path: "plant",
+                  select: "name",
+                },
               },
             },
           },
@@ -175,19 +179,36 @@ async function getPlan(req, res) {
     ]);
     let plan = [];
     i = 0;
+
     for (let date of dates) {
+      // console.log({
+      //   user: !!user,
+      //   acces: user.access,
+      //   idNumber: user.idNumber,
+      //   responsible: date.task.responsible,
+      //   supervisor: date.task.strategy.supervisor,
+      //   isAdmin: user.access === "Admin",
+      //   isResponsible:
+      //     user.access === "Worker" &&
+      //     date.task.responsible &&
+      //     date.task.responsible.idNumber !== user.idNumber,
+      //   isSuper:
+      //     user.access === "Supervisor" &&
+      //     date.task.strategy.supervisor.idNumber !== user.idNumber,
+      // });
+
       if (
         user &&
         (user.access === "Admin" ||
           (user.access === "Worker" &&
             date.task.responsible &&
-            date.task.responsible.idNumber !== user.idNumber) ||
+            date.task.responsible.idNumber == user.idNumber) ||
           (user.access === "Supervisor" &&
-            date.task.strategy.supervisor.idNumber !== user.idNumber))
+            date.task.strategy.supervisor.idNumber == user.idNumber))
       ) {
         plan.push({
           id: date._id,
-          plant: plantName,
+          plant: date.task.device.line.area.plant.name,
           area: date.task.device.line.area.name,
           line: date.task.device.line.name,
           code: date.task.device.code,

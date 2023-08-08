@@ -27,21 +27,32 @@ async function getPlant(args) {
     return await Plant.find(code ? { code } : name ? { name } : {});
   }
 }
+
+async function getUsersPlants(req) {
+  const user = await userController.getFullUserFromToken(req);
+  let plantName = "";
+  if (user.access !== "Admin") {
+    if (user.plant) {
+      plantName = user.plant.name;
+    } else {
+      throw new Error("Usuario no asignado a ninguna planta");
+    }
+  }
+  return await Plant.find(plantName ? { name: plantName } : {});
+}
 //*************** FOR ENDPOINTS ***************/
 async function getPlants(req, res) {
   try {
-    let plantName = "";
-    if (req.headers.authorization) {
-      const user = await userController.getFullUserFromToken(req);
-      if (user.access !== "Admin") {
-        plantName = user.plant.name;
-      }
-    }
     const { code, name } = req.query;
     let result;
-    result = await getPlant(
-      code ? { code } : plantName ? { name: plantName } : name ? { name } : {}
-    );
+    if (code || name) {
+      result = await getPlant(code ? { code } : name);
+    } else {
+      result = await getUsersPlants(req);
+    }
+    // result = await getPlant(
+    //   code ? { code } : plantName ? { name: plantName } : name ? { name } : {}
+    // );
     res.status(200).send(result);
   } catch (e) {
     res.status(400).send({ error: e.message });
@@ -151,6 +162,7 @@ async function updatePlant(req, res) {
 }
 
 module.exports = {
+  getUsersPlants,
   addNew,
   getByName,
 

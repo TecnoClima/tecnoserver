@@ -1,5 +1,6 @@
 const Line = require("../models/Line");
 const Area = require("../models/Area");
+const plantController = require("../controllers/plantController");
 const areaController = require("../controllers/areaController");
 const ServicePoint = require("../models/ServicePoint");
 const Device = require("../models/Device");
@@ -17,23 +18,30 @@ async function findByNameAndParents(lineName, areaName, plantName) {
   return line;
 }
 
-async function checkLine(lineName) {
-  return line.check(lineName);
-}
-
 async function getLines(req, res) {
   const { line, area, plant } = req.query;
   try {
     let result;
-    if ((line, area, plant)) {
-      const dbPlant = await Plant.findOne({ name: plant });
-      const dbArea = await Area.findOne({ name: area, plant: dbPlant._id });
-      result = await Line.findOne({ name: line, area: dbArea._id });
+    const lines = await Line.find({}).populate({
+      path: "area",
+      select: "name",
+      populate: { path: "plant", select: "name" },
+    });
+    if (line) {
+      result = lines.filter((l) => l.name === line);
+    } else if (area) {
+      result = lines.filter((l) => l.area.name === area);
+    } else if (plant) {
+      result = lines.filter((l) => l.area.plant.name === plant);
     } else {
-      result = await Line.find().lean().exec();
+      const plants = await plantController.getUsersPlants(req);
+      result = lines.filter((l) =>
+        plants.map((p) => p.name).includes(l.area.plant.name)
+      );
     }
     res.status(200).send(result);
   } catch (e) {
+    console.log(e);
     res.status(400).send({ error: e.message });
   }
 }
@@ -210,7 +218,6 @@ async function updateLine(req, res) {
 
 module.exports = {
   getLines,
-  checkLine,
   addLineFromApp,
   deleteOneLine,
   getLineByName,
