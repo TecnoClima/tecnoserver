@@ -120,11 +120,14 @@ async function getOptions(req, res) {
     const options = await WOoptions.findOne({});
     res.status(200).send({
       supervisor: (
-        await User.find({ access: "Supervisor", active: true }).sort("name")
+        await User.find({ access: "Supervisor", active: true })
+          .sort("name")
+          .populate({ path: "plant", select: "name" })
       ).map((user) => {
         return {
           name: user.name,
           id: user.idNumber,
+          plant: user.plant.name,
         };
       }),
       // status: options.status,
