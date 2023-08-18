@@ -297,6 +297,7 @@ async function updateDevice(req, res) {
     device.refrigerant = (
       await Refrigerant.findOne({ refrigerante: device.refrigerant })
     )._id;
+    if (device.power) device.powerKcal = device.power;
     await Device.findOneAndUpdate(
       { code: device.code, line: device.line._id },
       device
@@ -333,6 +334,7 @@ async function newDevice(req, res) {
         $in: device.servicePoints.map((id) => mongoose.Types.ObjectId(id)),
       },
     });
+    if (device.power) device.powerKcal = device.power;
     const newItem = await addNew(device);
     res.status(200).send({ success: newItem });
   } catch (e) {
