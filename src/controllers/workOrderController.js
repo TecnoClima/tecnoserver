@@ -7,6 +7,7 @@ const Cylinder = require("../models/Cylinder");
 const CylinderUse = require("../models/CylinderUse");
 const Intervention = require("../models/Intervention");
 const TaskDates = require("../models/TaskDates");
+const XLSX = require("xlsx");
 
 const devController = require("./deviceController");
 const userController = require("./userController");
@@ -560,6 +561,64 @@ async function updateWorkOrder(req, res) {
   }
 }
 
+async function generateReport(req, res) {
+  try {
+    const { orderIds } = req.body;
+    const orders = await WorkOrder.find({ code: { $in: orderIds } })
+      .populate({
+        path: "device",
+        populate: {
+          path: "line",
+          populate: { path: "area", populate: { path: "plant" } },
+        },
+      })
+      .populate({ path: "supervisor" })
+      .populate({
+        path: "interventions",
+        populate: [{ path: "workers", select: "username" }],
+      });
+    // const interventionsIds = orders
+    //   .map((order) => order.interventions.map((i) => i._id))
+    //   .flat(1);
+    // console.log(interventionsIds.slice(0, 2));
+    // const gas = await CylinderUse.find({
+    //   intervention: { $in: interventionsIds },
+    // });
+
+    const data = orders.map((order) => {
+      const powerKcal = order?.device?.powerKcal || 0;
+      return {
+        Nro_OT: order.code,
+        Clase: order.class,
+        Tipo_Causa: order.cause,
+        Equipo_id: order.device.code,
+        Denominacion: order.device.name,
+        "Tipo Equipo": order.device.type,
+        Línea: order.device.line.name,
+        Área: order.device.line.area.name,
+        "Pot Frio Tn": parseFloat(Math.round(powerKcal / 3000).toFixed(1)),
+        "Fecha Emisión": order.registration?.date || "",
+        Supervisor_Resp: order.supervisor.name,
+        Interviniente: JSON.stringify(
+          order.interventions?.map((int) => ({
+            fecha: int.date,
+            personal:
+              int?.workers.map((worker) => worker.username)?.join("-") || "",
+            tarea: int?.tasks || "",
+          })) || ""
+        ),
+        Estado: order.status,
+        Causa_Problematica: order.description,
+      };
+    });
+
+    res.status(200).send({ data });
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ error: e.message });
+  }
+}
+
 module.exports = {
   getByDevice,
 
@@ -570,4 +629,5 @@ module.exports = {
   getWOList,
   deleteWorkOrder,
   updateWorkOrder,
+  generateReport,
 };

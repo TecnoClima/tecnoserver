@@ -7,6 +7,7 @@ const {
   getWOList,
   deleteWorkOrder,
   updateWorkOrder,
+  generateReport,
 } = require("../controllers/workOrderController");
 const server = express.Router();
 
@@ -16,6 +17,7 @@ server.delete("/:code", deleteWorkOrder);
 server.put("/:code", updateWorkOrder);
 server.get("/options", getOptions);
 server.get("/detail/:idNumber", getWObyId);
+server.post("/report", generateReport);
 server.post("/", addOrder);
 
 module.exports = server;
