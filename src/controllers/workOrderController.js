@@ -128,7 +128,7 @@ async function getOptions(req, res) {
         return {
           name: user.name,
           id: user.idNumber,
-          plant: user.plant.name,
+          plant: user.plant?.name || null,
         };
       }),
       // status: options.status,
