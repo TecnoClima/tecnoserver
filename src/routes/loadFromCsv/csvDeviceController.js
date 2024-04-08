@@ -409,7 +409,7 @@ async function loadDevicesFromCsv() {
       code == "LSQ-LS009" ? (deviceCode = "LAQ-LS009") : (deviceCode = code);
       var lineOk = await Line.findOne({ name: line });
       if (!lineOk) {
-        lineOk = await Line.findOne({ code: deviceCode.split("-")[0] });
+        lineOk = await Line.findOne({ code: deviceCode.replace(/\-\d+$/, "") });
       }
       return lineOk._id;
     };

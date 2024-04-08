@@ -13,7 +13,7 @@ const connectDb = require("./src/db/mongodb");
 async function initApp(appConfig, dbUrl) {
   try {
     connectDb(dbUrl);
-    server.listen(3002, () => {
+    server.listen(appConfig.port, () => {
       console.log(`Servidor web escuchando en el puerto ${appConfig.port}`);
     });
   } catch (e) {

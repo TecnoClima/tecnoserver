@@ -44,7 +44,7 @@ server.use(bodyParser.json({ limit: "50mb" }));
 server.use("/public", express.static(`${__dirname}/storage/imgs`));
 
 server.use(cookieParser("secret"));
-// server.use(morgan("dev"));
+server.use(morgan("dev"));
 server.use(morgan("combined", { stream: accessLogStream }));
 
 server.use((req, res, next) => {
