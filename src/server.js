@@ -32,7 +32,7 @@ function handleError(middleware, req, res, next) {
 }
 
 server.use((req, res, next) => {
-  handleError(express.json(), req, res, next);
+  handleError(bodyParser.json({ limit: "50mb" }), req, res, next);
 });
 
 server.use(cors());
