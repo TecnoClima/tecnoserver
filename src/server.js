@@ -40,6 +40,7 @@ server.name = "TecnoApp";
 
 server.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
 server.use(bodyParser.json({ limit: "50mb" }));
+server.use(express.json({ limit: "50mb" }));
 
 server.use("/public", express.static(`${__dirname}/storage/imgs`));
 
