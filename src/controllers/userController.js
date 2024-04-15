@@ -205,9 +205,8 @@ async function updateUser(req, res) {
     }
 
     if (update.password) update.password = await setPassword(update.password);
-    update.plant = update.plant
-      ? await Plant.findOne({ name: update.plant })
-      : null;
+    if (update.plant)
+      update.plant = await Plant.findOne({ name: update.plant });
     await User.findByIdAndUpdate(user._id, update);
     const updated = await User.findById(user._id).populate("plant");
     const result = {
