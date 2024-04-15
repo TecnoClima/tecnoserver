@@ -14,6 +14,8 @@ const taskRoutes = require("./tasks");
 const csvRoutes = require("./loadFromCsv/csvRoutes");
 const datesRoutes = require("./dates");
 const excelRoutes = require("./excel");
+const optionRoutes = require("./options");
+const backup = require("./backup");
 
 const server = Router();
 
@@ -31,5 +33,7 @@ server.use("/tasks", taskRoutes);
 server.use("/csvupdate", csvRoutes);
 server.use("/dates", datesRoutes);
 server.use("/excel", excelRoutes);
+server.use("/options", optionRoutes);
+server.get("/backup", backup);
 
 module.exports = server;
