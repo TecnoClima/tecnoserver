@@ -11,6 +11,8 @@ const XLSX = require("xlsx");
 
 const devController = require("./deviceController");
 const userController = require("./userController");
+const Task = require("../models/Task");
+const { getTaskDatesByOrder } = require("./taskDateController");
 
 function buildOrder(order) {
   return {
@@ -222,6 +224,7 @@ async function addOrder(req, res) {
 
 async function getWObyId(req, res) {
   const { idNumber } = req.params;
+  const year = req.query.year || new Date().getFullYear();
   try {
     const workOrder = await WorkOrder.findOne({ code: idNumber })
       .populate({
@@ -254,10 +257,10 @@ async function getWObyId(req, res) {
     const interventions = await Intervention.find({
       workOrder: workOrder._id,
     }).populate("workers");
+
     const gasUsage = await CylinderUse.find({
       intervention: interventions.map((e) => e._id),
     }).populate({ path: "cylinder", populate: "assignedTo" });
-    const taskDate = await TaskDates.findOne({ workOrders: workOrder._id });
 
     const device = workOrder.device;
     let power = 0,
@@ -270,6 +273,8 @@ async function getWObyId(req, res) {
       power = parseInt(device.powerKcal / 3000);
       unit = "Tn Refrigeración";
     }
+
+    const taskDates = await getTaskDatesByOrder(workOrder, year);
 
     const itemToSend = {
       code: workOrder.code,
@@ -296,6 +301,9 @@ async function getWObyId(req, res) {
       servicePoint: workOrder.servicePoint
         ? workOrder.servicePoint.name
         : undefined,
+      taskDates,
+      taskDate:
+        taskDates.find((d) => d.orders.includes(workOrder.code)) || null,
       device: {
         plant: device.line.area.plant.name,
         area: device.line.area.name,
@@ -346,10 +354,6 @@ async function getWObyId(req, res) {
       interventionsArray.push(item);
     }
     itemToSend.interventions = interventionsArray;
-
-    if (taskDate) {
-      itemToSend.taskDate = taskDate._id;
-    }
 
     res.status(200).send(itemToSend);
   } catch (e) {

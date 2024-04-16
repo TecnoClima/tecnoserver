@@ -1,33 +1,38 @@
-const mongoose = require ('mongoose')
+const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const StrategySchema = Schema({
-    plant:{
-        type: mongoose.Types.ObjectId,
-        ref: 'Plant'
+const StrategySchema = Schema(
+  {
+    plant: {
+      type: mongoose.Types.ObjectId,
+      ref: "Plant",
     },
-    year:{
-        type: Number
-    },    
-    name:{
-        type:String,
-        required: true,
+    year: {
+      type: Number,
     },
-    description:{
-        type: String,
-        populate: true
+    name: {
+      type: String,
+      required: true,
     },
-    supervisor:{
+    description: {
+      type: String,
+      populate: true,
+    },
+    supervisor: {
+      type: mongoose.Types.ObjectId,
+      ref: "Users",
+    },
+    people: [
+      {
         type: mongoose.Types.ObjectId,
-        ref: 'Users',
-        },
-    people:[{
-        type: mongoose.Types.ObjectId,
-        ref: 'Users',
+        ref: "Users",
         populate: true,
-    }]
-}, {
-    timestamps: true
-})
+      },
+    ],
+  },
+  {
+    timestamps: true,
+  }
+);
 
-module.exports=mongoose.model('Strategy', StrategySchema)
+module.exports = mongoose.model("Strategy", StrategySchema);
