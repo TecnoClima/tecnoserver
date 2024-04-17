@@ -12,6 +12,7 @@ const {
   devicesByLine,
   devicesByName,
   getOptions,
+  devicePage,
 } = require("../controllers/deviceController");
 const server = express.Router();
 
@@ -26,6 +27,7 @@ server.get("/history", getDeviceHistory);
 server.get("/fullOptions", fullDeviceOptions);
 server.get("/filters", getDeviceFilters);
 server.post("/filters", getDevices);
+server.post("/page", devicePage);
 server.get("/byLine/:lineName", devicesByLine);
 server.get("/byName/:name", devicesByName);
 module.exports = server;

@@ -543,7 +543,9 @@ async function updateWorkOrder(req, res) {
       : undefined;
 
     if (order.taskDate) {
-      const newTaskDate = await TaskDates.findById(order.taskDate);
+      const newTaskDate = await TaskDates.findById(
+        order.taskDate.id || order.taskDate
+      );
       const orderTaskDate = await TaskDates.findOne({ workOrders: stored._id });
       if (JSON.stringify(newTaskDate) !== JSON.stringify(orderTaskDate._id)) {
         await TaskDates.findByIdAndUpdate(orderTaskDate._id, {

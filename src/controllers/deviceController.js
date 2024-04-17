@@ -168,6 +168,156 @@ async function getDeviceHistory(req, res) {
   }
 }
 
+async function devicePage(req, res) {
+  try {
+    const params = req.body;
+    async function locationQuery({ plant, area, line }) {
+      if (line) {
+        return { line: (await Line.findById(line))?._id };
+      } else if (area) {
+        return { line: (await Line.find({ area })).map((l) => l._id) };
+      } else if (plant) {
+        const lines = (
+          await Line.find({})
+            .populate({
+              path: "area",
+              populate: { path: "plant", match: { _id: plant } },
+            })
+            .exec()
+        )
+          .filter((l) => l.area.plant)
+          .map((l) => l._id);
+        return { line: lines };
+      } else {
+        return {};
+      }
+    }
+    function deviceQuery({ device }) {
+      if (device)
+        return {
+          $or: [
+            { code: { $regex: device, $options: "i" } },
+            { name: { $regex: device, $options: "i" } },
+          ],
+        };
+      return {};
+    }
+    function powerQuery({ powerMin, powerUnit, powerMax }) {
+      let min = parseInt(powerMin);
+      let max = parseInt(powerMax);
+      // Si la unidad es 'TR', convertir a kcal
+      if (powerUnit === "TR") {
+        min *= 3000;
+        max *= 3000;
+      }
+      if (min && max) return { powerKcal: { $gte: min, $lte: max } }; // Buscar entre min y max
+      if (min) return { powerKcal: { $gte: min } }; // Buscar mayor o igual a min
+      if (max) return { powerKcal: { $lte: max } }; // Buscar menor o igual a max
+      return {}; // Sin restricciones en powerKcal
+    }
+
+    async function optionsQuery({
+      refrigerant,
+      category,
+      environment,
+      service,
+      status,
+    }) {
+      const data = {
+        category,
+        environment,
+        service,
+        status,
+      };
+      if (refrigerant) {
+        const result = await Refrigerant.findOne({
+          refrigerante: refrigerant,
+        });
+        if (result) data.refrigerant = result._id;
+      }
+      return data;
+    }
+
+    function calculateDate(age) {
+      const currentDate = new Date();
+      return new Date(
+        currentDate.getFullYear() - age,
+        currentDate.getMonth(),
+        currentDate.getDate()
+      );
+    }
+
+    function ageQuery({ ageMin, ageMax }) {
+      if (!ageMin && !ageMax) return {};
+      const regDate = {};
+      if (ageMax) regDate.$gte = calculateDate(ageMax);
+      if (ageMin) regDate.$lte = calculateDate(ageMin);
+      return { regDate };
+    }
+
+    async function reclaimQuery({ plant, area, line, recMin, recMax }) {
+      const min = parseInt(recMin);
+      const max = parseInt(recMax);
+      if (!min && !max) return {};
+      const devices = await Device.find(
+        await locationQuery({ plant, area, line })
+      );
+      const workOrder = await WorkOrder.find({
+        class: "Reclamo",
+        "registration.date": { $gte: calculateDate(1) },
+        device: { $in: devices },
+      }).populate({ path: "device", select: "code" });
+      const count = devices.map((d) => ({
+        code: d.code,
+        rec: workOrder.filter((w) => w.device.code === d.code).length,
+      }));
+      const codes = count
+        .filter((c) => {
+          if (min && max) return c.rec >= min && c.rec <= max;
+          if (min) return c.rec >= min;
+          if (max) return c.rec <= max;
+        })
+        .map((d) => d.code);
+      return { codes: { $in: codes } };
+    }
+
+    const [locationFilter, optionsFilter, reclaimFilter] = await Promise.all([
+      locationQuery(params),
+      optionsQuery(params),
+      reclaimQuery(params),
+    ]);
+
+    let filters = [
+      locationFilter,
+      deviceQuery(params),
+      powerQuery(params),
+      ageQuery(params),
+      optionsFilter,
+      reclaimFilter,
+    ];
+    filters = filters.filter((f) => JSON.stringify(f) !== "{}");
+
+    console.log(params);
+    const pageSize = params.page?.size || 30;
+    const page = params.page?.page || 1;
+    const devices = await Device.find(
+      filters[0] ? { $and: filters } : {}
+    ).populate("refrigerant");
+    const pages = Math.ceil(devices.length / pageSize);
+
+    res.status(200).send({
+      devices: devices.slice(
+        (page - 1) * pageSize,
+        (page - 1) * pageSize + pageSize
+      ),
+      pages,
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ error: e.message });
+  }
+}
+
 async function fullDeviceOptions(req, res) {
   try {
     const options = await DeviceOptions.findOne({});
@@ -183,6 +333,7 @@ async function fullDeviceOptions(req, res) {
       "line",
       "_id",
     ]);
+
     res.status(200).send({
       plant,
       area,
@@ -203,18 +354,7 @@ async function fullDeviceOptions(req, res) {
 }
 
 async function addNew(device) {
-  const {
-    line,
-    power,
-    refrigerant,
-    // type,
-    // service,
-    // category,
-    // environment,
-    // status,
-    // extraDetails,
-    // active,
-  } = device;
+  const { line, power, refrigerant } = device;
 
   if (!device.code) {
     const lineDevices = await Device.find({ code: { $regex: line.code } })
@@ -235,34 +375,15 @@ async function addNew(device) {
       ? device.servicePoints.map((sp) => sp._id)
       : undefined;
   const gas = await Refrigerant.findOne({ refrigerante: refrigerant });
-  const newDevice = await Device(
-    {
-      ...device,
-      line: line._id,
-      name: device.name.toUpperCase(),
-      regDate: new Date(device.regDate),
-      powerKcal: Number(power),
-      refrigerant: gas._id,
-      servicePoints,
-    }
-
-    // {
-    // code: device.code,
-    // line: line._id,
-    // name: device.name.toUpperCase(),
-    // regDate: new Date(device.regDate),
-    // powerKcal: Number(power),
-    // type,
-    // service,
-    // category,
-    // environment,
-    // status,
-    // extraDetails,
-    // refrigerant: (await Refrigerant.findOne({ refrigerante: refrigerant }))._id,
-    // servicePoints,
-    // active,
-    // }
-  );
+  const newDevice = await Device({
+    ...device,
+    line: line._id,
+    name: device.name.toUpperCase(),
+    regDate: new Date(device.regDate),
+    powerKcal: Number(power),
+    refrigerant: gas._id,
+    servicePoints,
+  });
   const stored = await newDevice.save();
   const addedDevice = await Device.findById(stored._id)
     .populate("refrigerant")
@@ -510,6 +631,7 @@ module.exports = {
   findById,
   getDeviceHistory,
   updateDevice,
+  devicePage,
 
   fullDeviceOptions,
   getDeviceFilters,
