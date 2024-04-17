@@ -3,23 +3,26 @@ const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const morgan = require("morgan");
 const cors = require("cors");
+const https = require("https"); // Agrega esta línea para utilizar HTTPS
+const fs = require("fs");
+const path = require("path");
 const routes = require("./routes/index.js");
-
-//const productRoutes = require('./routes/products');
 const user = require("./controllers/userController");
 
 // To create log file
-const fs = require("fs");
-const path = require("path");
 var accessLogStream = fs.createWriteStream(path.join(__dirname, "access.log"), {
   flags: "a",
 });
 
 const server = express();
 
-const { CLIENT_URL } = process.env;
+// Configuración de los certificados SSL
+const options = {
+  key: fs.readFileSync(path.join(__dirname, "certs/mi_certificado.key")),
+  cert: fs.readFileSync(path.join(__dirname, "certs/mi_certificado.crt")),
+};
 
-// server.use(express.json());
+const { CLIENT_URL } = process.env;
 
 function handleError(middleware, req, res, next) {
   middleware(req, res, (err) => {
@@ -40,7 +43,7 @@ server.name = "TecnoApp";
 
 server.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
 server.use(bodyParser.json({ limit: "50mb" }));
-server.use(express.json({ limit: "50mb" }));
+// server.use(express.json({ limit: "50mb" }));
 
 server.use("/public", express.static(`${__dirname}/storage/imgs`));
 
@@ -72,6 +75,15 @@ server.use((err, req, res, next) => {
   const message = err.message || err;
   console.error(err);
   res.status(status).send(message);
+});
+
+// Creación del servidor HTTPS con Express
+const PORT = 443; // Puerto para HTTPS
+const httpsServer = https.createServer(options, server);
+
+// Iniciar el servidor HTTPS
+httpsServer.listen(PORT, () => {
+  console.log(`Servidor HTTPS Express iniciado en el puerto ${PORT}`);
 });
 
 module.exports = server;
