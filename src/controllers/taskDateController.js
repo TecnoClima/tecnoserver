@@ -31,8 +31,8 @@ function buildDate(date) {
   };
 }
 
-async function getTaskDatesByOrder(workOrder, year) {
-  const task = await Task.findOne({ device: workOrder.device });
+async function getTaskDatesByDevice(deviceId, year) {
+  const task = await Task.findOne({ device: deviceId });
   const dates = await TaskDate.find({
     $and: [
       {
@@ -49,6 +49,12 @@ async function getTaskDatesByOrder(workOrder, year) {
     date,
     orders: workOrders.map((o) => o.code),
   }));
+}
+
+async function getDeviceDates(code, year) {
+  const device = await Device.findOne({ code });
+  const dates = await getTaskDatesByDevice(device._id, year);
+  return dates;
 }
 
 async function getDates(req, res) {
@@ -265,7 +271,8 @@ async function getPlan(req, res) {
 
 module.exports = {
   getDates,
+  getDeviceDates,
   addDates,
   getPlan,
-  getTaskDatesByOrder,
+  getTaskDatesByDevice,
 };

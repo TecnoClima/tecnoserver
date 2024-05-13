@@ -12,6 +12,7 @@ const ServicePoint = require("../models/ServicePoint");
 const userController = require("./userController");
 
 const mongoose = require("mongoose");
+const { getDeviceDates } = require("./taskDateController");
 
 function buildDevice(device, line, area, plant) {
   const today = new Date();
@@ -37,6 +38,7 @@ function buildDevice(device, line, area, plant) {
     servicePoints: device.servicePoints
       ? device.servicePoints.map((sp) => sp.name)
       : [],
+    taskDates: device.dates,
   };
 }
 
@@ -50,7 +52,7 @@ async function deleteDevice(code) {
   await Device.deleteOne({ code });
 }
 
-async function getDevice(id) {
+async function getDevice(id, dates) {
   if (!id) throw new Error("id no ingresado");
   const device = await Device.findOne({
     $or: [{ code: id }, { code: id.code }],
@@ -70,6 +72,10 @@ async function getDevice(id) {
       },
     });
   if (!device) throw new Error("Equipo no encontrado");
+  if (dates) {
+    const year = new Date().getFullYear();
+    device.dates = await getDeviceDates(device.code, year);
+  }
   return device;
 }
 
@@ -118,8 +124,8 @@ async function allDevices(req, res) {
 
 async function findById(req, res) {
   try {
-    const { id } = req.query;
-    res.status(200).send(buildDevice(await getDevice(id.toUpperCase())));
+    const { id, dates } = req.query;
+    res.status(200).send(buildDevice(await getDevice(id.toUpperCase(), dates)));
   } catch (e) {
     res.status(400).send({ error: e.message });
   }
@@ -297,7 +303,6 @@ async function devicePage(req, res) {
     ];
     filters = filters.filter((f) => JSON.stringify(f) !== "{}");
 
-    console.log(params);
     const pageSize = params.page?.size || 30;
     const page = params.page?.page || 1;
     const devices = await Device.find(

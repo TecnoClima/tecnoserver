@@ -12,7 +12,7 @@ const XLSX = require("xlsx");
 const devController = require("./deviceController");
 const userController = require("./userController");
 const Task = require("../models/Task");
-const { getTaskDatesByOrder } = require("./taskDateController");
+const { getTaskDatesByDevice } = require("./taskDateController");
 
 function buildOrder(order) {
   return {
@@ -274,7 +274,7 @@ async function getWObyId(req, res) {
       unit = "Tn Refrigeración";
     }
 
-    const taskDates = await getTaskDatesByOrder(workOrder, year);
+    const taskDates = await getTaskDatesByDevice(workOrder.device, year);
 
     const itemToSend = {
       code: workOrder.code,
@@ -363,7 +363,6 @@ async function getWObyId(req, res) {
 }
 
 async function newInterventions(interventions, order) {
-  console.log(order);
   return await Promise.all(
     interventions.map(async (i) => {
       const newItem = await Intervention({
