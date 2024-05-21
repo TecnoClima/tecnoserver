@@ -13,6 +13,10 @@ const user = require("./controllers/userController");
 var accessLogStream = fs.createWriteStream(path.join(__dirname, "access.log"), {
   flags: "a",
 });
+accessLogStream.on("error", (err) => {
+  console.error("Error writing to log file:", err);
+  // Puedes agregar lógica adicional para manejar el error, como alertar al administrador del sistema, etc.
+});
 
 const server = express();
 
