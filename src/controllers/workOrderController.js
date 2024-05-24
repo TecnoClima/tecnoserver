@@ -14,7 +14,7 @@ const userController = require("./userController");
 const Task = require("../models/Task");
 const { getTaskDatesByDevice } = require("./taskDateController");
 
-function buildOrder(order) {
+function buildOrder(order, taskDate) {
   return {
     code: order.code,
     class: order.class,
@@ -30,6 +30,7 @@ function buildOrder(order) {
     close: order.closed.date || "",
     description: order.description,
     servicePoint: order.servicePoint && order.servicePoint.name,
+    taskDate,
   };
 }
 
@@ -541,25 +542,28 @@ async function updateWorkOrder(req, res) {
       ? await newInterventions(intervetionsToCreate, stored)
       : undefined;
 
-    if (order.taskDate) {
-      const newTaskDate = await TaskDates.findById(
-        order.taskDate.id || order.taskDate
-      );
-      const orderTaskDate = await TaskDates.findOne({ workOrders: stored._id });
-      if (JSON.stringify(newTaskDate) !== JSON.stringify(orderTaskDate._id)) {
-        await TaskDates.findByIdAndUpdate(orderTaskDate._id, {
+    const currentTaskDate = await TaskDates.findOne({
+      workOrders: stored._id,
+    });
+    const newTaskDate = await TaskDates.findById(
+      order.taskDate?.id || order.taskDate
+    );
+
+    if (!currentTaskDate?._id.equals(newTaskDate?._id)) {
+      currentTaskDate &&
+        (await TaskDates.findByIdAndUpdate(currentTaskDate._id, {
           $pull: { workOrders: stored._id },
-        });
-        await TaskDates.findByIdAndUpdate(newTaskDate._id, {
+        }));
+      newTaskDate &&
+        (await TaskDates.findByIdAndUpdate(newTaskDate._id, {
           $push: { workOrders: stored._id },
-        });
-      }
+        }));
     }
     stored.interventions = existingInterventions.concat(
       addedInterventions || []
     );
     stored.taskDate = await TaskDates.findOne({ workOrders: stored._id });
-    res.status(200).send(buildOrder(stored));
+    res.status(200).send(buildOrder(stored, order.taskDate));
   } catch (e) {
     console.log(e);
     res.status(400).send({ error: e.message });
