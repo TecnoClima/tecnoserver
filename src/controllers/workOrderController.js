@@ -26,7 +26,8 @@ function buildOrder(order, taskDate) {
     plant: order.device.line.area.plant.name,
     solicitor: order.solicitor.name,
     date: order.registration.date,
-    supervisor: order.supervisor && order.supervisor.name,
+    supervisor: order.supervisor?.name,
+    supervisor: order.responsible?.idNumber,
     close: order.closed.date || "",
     description: order.description,
     servicePoint: order.servicePoint && order.servicePoint.name,
@@ -165,6 +166,7 @@ async function addOrder(req, res) {
           })
         )._id,
       },
+      responsible: await User.findOne({ idNumber: workOrder.responsible }),
       clientWO: workOrder.clientWO,
       supervisor: (await User.findOne({ idNumber: workOrder.supervisor }))._id,
       description: workOrder.description,
@@ -252,6 +254,7 @@ async function getWObyId(req, res) {
         select: ["name", "idNumber"],
       })
       .populate({ path: "supervisor", select: "idNumber" })
+      .populate({ path: "responsible", select: "idNumber" })
       .populate({ path: "interventions", populate: ["workers"] })
       .populate("servicePoint");
 
@@ -292,6 +295,7 @@ async function getWObyId(req, res) {
       supervisor: workOrder.supervisor
         ? workOrder.supervisor.idNumber
         : "[Sin Dato]",
+      responsible: workOrder.responsible?.idNumber,
       status: workOrder.status,
       closed: workOrder.closed && workOrder.closed.date,
       cause: workOrder.cause,
@@ -434,6 +438,7 @@ async function getWOList(req, res) {
       })
       .populate({ path: "registration", populate: "user" })
       .populate({ path: "supervisor", select: ["id", "name"] })
+      .populate({ path: "responsible", select: "idNumber" })
       .populate("servicePoint")
       .sort("code");
 
@@ -454,6 +459,7 @@ async function getWOList(req, res) {
           solicitor: order.solicitor.name,
           date: order.registration.date,
           supervisor: order.supervisor && order.supervisor.name,
+          responsible: order.responsible?.idNumber,
           close: order.closed.date || "",
           description: order.description,
           servicePoint: order.servicePoint && order.servicePoint.name,
@@ -502,6 +508,8 @@ async function updateWorkOrder(req, res) {
       order.supervisor = (
         await User.findOne({ idNumber: order.supervisor })
       )._id;
+    if (order.responsible)
+      order.responsible = await User.findOne({ idNumber: order.responsible });
     if (order.servicePoint)
       order.servicePoint = (
         await ServicePoint.findOne({ name: req.body.servicePoint })
