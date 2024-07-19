@@ -176,6 +176,7 @@ function validateToken(req, res, next) {
             .status(400)
             .send({ error: "Access denied: Token expired or incorrect" });
         } else {
+          req.tokenData = user;
           next();
         }
       });
