@@ -38,11 +38,10 @@ function buildOrder(order, taskDate) {
 async function getAssignedOrders(req, res) {
   try {
     const user = await User.findOne({ idNumber: req.tokenData.id });
-    const orders = await WorkOrder.find({ responsible: user._id }).populate([
-      "device",
-      "supervisor",
-      "responsible",
-    ]);
+    const orders = await WorkOrder.find({
+      responsible: user._id,
+      completed: { $lt: 100 },
+    }).populate(["device", "supervisor", "responsible"]);
     res.send({ result: !!orders.length, list: orders });
   } catch (e) {
     res.send({ result: false, list: [], error: e.message });

@@ -224,11 +224,12 @@ async function updateUser(req, res) {
 async function getUsersList(req, res) {
   try {
     const { access, charge, id, plant } = req.query;
+    const plantName = plant || req.tokenData.plant;
     const filters = { access, charge };
     if (id) filters.idNumber = Number(id);
     if (!req.query.active) filters.active = true;
-    if (plant) filters.plant = await Plant.findOne({ name: plant });
-
+    if (plantName && req.tokenData.access !== "Admin")
+      filters.plant = await Plant.findOne({ name: plantName });
     for (let key of Object.keys(filters))
       if (!filters[key]) delete filters[key];
     const users = await User.find(filters).populate("plant");
