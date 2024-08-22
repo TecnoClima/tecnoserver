@@ -620,6 +620,7 @@ async function generateReport(req, res) {
       return {
         Nro_OT: order.code,
         Clase: order.class,
+        Problema: order.initIssue,
         Tipo_Causa: order.cause,
         Equipo_id: order.device.code,
         Denominacion: order.device.name,
