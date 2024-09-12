@@ -13,6 +13,7 @@ const {
   devicesByName,
   getOptions,
   devicePage,
+  getDevicesReport,
 } = require("../controllers/deviceController");
 const server = express.Router();
 
@@ -30,4 +31,5 @@ server.post("/filters", getDevices);
 server.post("/page", devicePage);
 server.get("/byLine/:lineName", devicesByLine);
 server.get("/byName/:name", devicesByName);
+server.post("/report", getDevicesReport);
 module.exports = server;

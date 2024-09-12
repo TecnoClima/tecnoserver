@@ -626,6 +626,98 @@ async function getOptions(req, res) {
   }
 }
 
+async function getDevicesReport(req, res) {
+  try {
+    const { plant, area, line } = req.body;
+    const filters = { active: true };
+
+    if (line) {
+      filters.line = await Line.findOne({ name: line });
+    } else if (area) {
+      filters.line = {
+        $in: await Line.find({ area: await Area.find({ name: area }) }),
+      };
+    } else if (plant) {
+      filters.line = {
+        $in: await Line.find({
+          area: {
+            $in: await Area.find({
+              plant: await Plant.findOne({ name: plant }),
+            }),
+          },
+        }),
+      };
+    }
+
+    const deviceList = await Device.find(filters)
+      .populate("refrigerant")
+      .populate("servicePoints")
+      .populate({
+        path: "line",
+        select: "name",
+        populate: {
+          path: "area",
+          select: "name",
+          populate: { path: "plant", select: "name" },
+        },
+      });
+    const reportData = [];
+
+    deviceList.map((d) => {
+      const date = new Date(d.regDate);
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0"); // Los meses comienzan en 0
+      const year = date.getFullYear();
+
+      for (let sp of d.servicePoints) {
+        reportData.push({
+          PLANTA: d.line.area.plant.name,
+          AREA: d.line.area.name,
+          LINEA: d.line.name,
+          "CÓDIGO-LS": sp.code,
+          "LUGARES DE SERVICIO": sp.name,
+          CÓDIGO: d.code,
+          NOMBRE: d.name,
+          TIPO: d.type,
+          POTENCIA: d.powerKcal,
+          GAS: d.refrigerant?.refrigerante || "SIN DATO",
+          "DESCRIPCIÓN LARGA": d.extraDetails,
+          SERVICIO: d.service,
+          ESTADO: d.status,
+          CATEGORÍA: d.category,
+          "FECHA ALTA": `${day}/${month}/${year}`,
+          AMBIENTE: d.environment,
+          ACTIVO: d.active ? "SI" : "NO",
+        });
+      }
+    });
+    res.status(200).send(
+      reportData.sort((a, b) => {
+        // Comparar por PLANTA
+        if (a.PLANTA < b.PLANTA) return -1;
+        if (a.PLANTA > b.PLANTA) return 1;
+
+        // Comparar por AREA
+        if (a.AREA < b.AREA) return -1;
+        if (a.AREA > b.AREA) return 1;
+
+        // Comparar por LINEA
+        if (a.LINEA < b.LINEA) return -1;
+        if (a.LINEA > b.LINEA) return 1;
+
+        // Comparar por 'CÓDIGO-LS'
+        if (a["CÓDIGO-LS"] < b["CÓDIGO-LS"]) return -1;
+        if (a["CÓDIGO-LS"] > b["CÓDIGO-LS"]) return 1;
+
+        return 0; // Son iguales en todos los criterios
+      })
+    );
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ error: e.message });
+  }
+}
+
 module.exports = {
   addNew,
   deleteDevice,
@@ -644,4 +736,5 @@ module.exports = {
   devicesByLine,
   devicesByName,
   getOptions,
+  getDevicesReport,
 };
