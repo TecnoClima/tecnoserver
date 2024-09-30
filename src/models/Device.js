@@ -67,6 +67,10 @@ const DeviceSchema = Schema(
         ref: "ServicePoints",
       },
     ],
+    following: {
+      type: Boolean,
+      default: false,
+    },
     active: {
       type: Boolean,
     },

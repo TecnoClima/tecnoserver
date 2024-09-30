@@ -335,6 +335,7 @@ async function getWObyId(req, res) {
         status: device.status,
         environment: device.environment,
         category: device.category,
+        following: device.following,
         service: device.service,
       },
     };
@@ -435,7 +436,7 @@ async function getWOList(req, res) {
     const workOrders = await WorkOrder.find(filters)
       .populate({
         path: "device",
-        select: ["code", "name"],
+        select: ["code", "name", "following"],
         populate: {
           path: "line",
           select: "name",
@@ -466,6 +467,7 @@ async function getWOList(req, res) {
           status: order.status,
           devCode: order.device.code,
           devName: order.device.name,
+          devFollowing: order.device.following,
           line: order.device.line.name,
           area: order.device.line.area.name,
           plant: order.device.line.area.plant.name,
