@@ -14,6 +14,21 @@ const userController = require("./userController");
 const mongoose = require("mongoose");
 const { getDeviceDates } = require("./taskDateController");
 
+async function findFullDeviceData(identifier) {
+  return await Device.findOne(identifier)
+    .populate("refrigerant")
+    .populate("servicePoints")
+    .populate({
+      path: "line",
+      select: "name",
+      populate: {
+        path: "area",
+        select: "name",
+        populate: { path: "plant", select: "name" },
+      },
+    });
+}
+
 function buildDevice(device, line, area, plant) {
   const today = new Date();
   const regDate = new Date(device.regDate);
@@ -32,6 +47,7 @@ function buildDevice(device, line, area, plant) {
     service: device.service,
     status: device.status,
     category: device.category,
+    following: device.following,
     regDate: device.regDate,
     age: device.regDate ? today.getFullYear() - regDate.getFullYear() : "S/D",
     environment: device.environment,
@@ -408,38 +424,44 @@ async function addNew(device) {
 async function updateDevice(req, res) {
   try {
     const device = { ...req.body };
-    const plant = await Plant.findOne({ name: device.plant });
-    const area = await Area.findOne({ name: device.area, plant: plant._id });
-    device.line = await Line.findOne({
-      name: device.line,
-      area: area._id,
-    });
-    device.servicePoints = await ServicePoint.find({
-      _id: {
-        $in: device.servicePoints.map((id) => mongoose.Types.ObjectId(id)),
-      },
-    });
-    device.name = device.name.toUpperCase();
-    device.refrigerant = (
-      await Refrigerant.findOne({ refrigerante: device.refrigerant })
-    )._id;
+    const baseData = await findFullDeviceData({ code: device.code });
+
+    const plant =
+      (await Plant.findOne({ name: device.plant })) || baseData.line.area.plant;
+    const area =
+      (await Area.findOne({ name: device.area, plant: plant._id })) ||
+      baseData.line.area;
+    device.line =
+      (await Line.findOne({
+        name: device.line,
+        area: area._id,
+      })) || baseData.line;
+    device.servicePoints =
+      (await ServicePoint.find(
+        mongoose.isValidObjectId(device.servicePoints?.[0])
+          ? {
+              _id: {
+                $in: device.servicePoints?.map((id) =>
+                  mongoose.Types.ObjectId(id)
+                ),
+              },
+            }
+          : {
+              name: {
+                $in: device.servicePoints,
+              },
+            }
+      )) || baseData.servicePoints;
+    device.name = device.name.toUpperCase() || baseData.name;
+    device.refrigerant =
+      (await Refrigerant.findOne({ refrigerante: device.refrigerant }))._id ||
+      baseData.refrigerant;
     if (device.power) device.powerKcal = device.power;
     await Device.findOneAndUpdate(
       { code: device.code, line: device.line._id },
       device
     );
-    const updated = await Device.findOne({ code: device.code })
-      .populate("refrigerant")
-      .populate("servicePoints")
-      .populate({
-        path: "line",
-        select: "name",
-        populate: {
-          path: "area",
-          select: "name",
-          populate: { path: "plant", select: "name" },
-        },
-      });
+    const updated = await findFullDeviceData({ code: device.code });
     res.status(200).send({ success: buildDevice(updated) });
   } catch (e) {
     console.log(e);
@@ -688,6 +710,7 @@ async function getDevicesReport(req, res) {
           "FECHA ALTA": `${day}/${month}/${year}`,
           AMBIENTE: d.environment,
           ACTIVO: d.active ? "SI" : "NO",
+          SIGUIENDO: d.following,
         });
       }
     });
