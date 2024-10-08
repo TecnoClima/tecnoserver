@@ -71,6 +71,16 @@ const DeviceSchema = Schema(
       type: Boolean,
       default: false,
     },
+    follower: {
+      type: Schema.Types.ObjectId,
+      ref: "Users",
+    },
+    followDate: {
+      type: Date,
+    },
+    frequency: {
+      type: Number,
+    },
     active: {
       type: Boolean,
     },
