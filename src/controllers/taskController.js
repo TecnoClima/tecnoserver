@@ -228,20 +228,13 @@ async function taskDeviceList(req, res) {
         const task = plan.find((task) => task.device.code === device.code);
 
         const newDevice = {
-          code: device.code,
-          name: device.name,
-          type: device.type,
+          ...device,
           power: device.powerKcal,
-          service: device.service,
-          status: device.status,
-          category: device.category,
-          environment: device.environment,
           age:
             new Date().getFullYear() - new Date(device.regDate).getFullYear(),
           line: device.line.name,
           area: device.line.area.name,
           plant: device.line.area.plant.name,
-          active: device.active,
           servicePoints: device.servicePoints
             ? device.servicePoints.map((e) => e.name)
             : [],

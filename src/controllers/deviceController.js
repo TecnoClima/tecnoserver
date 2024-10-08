@@ -13,6 +13,7 @@ const userController = require("./userController");
 
 const mongoose = require("mongoose");
 const { getDeviceDates } = require("./taskDateController");
+const User = require("../models/User");
 
 async function findFullDeviceData(identifier) {
   return await Device.findOne(identifier)
@@ -26,7 +27,8 @@ async function findFullDeviceData(identifier) {
         select: "name",
         populate: { path: "plant", select: "name" },
       },
-    });
+    })
+    .lean();
 }
 
 function buildDevice(device, line, area, plant) {
@@ -34,32 +36,21 @@ function buildDevice(device, line, area, plant) {
   const regDate = new Date(device.regDate);
 
   return {
+    ...device,
     plant: device.line.name ? device.line.area.plant.name : plant,
     area: device.line.area ? device.line.area.name : area,
     line: device.line.name || line,
     active: device.active || true,
-    code: device.code,
-    name: device.name,
-    type: device.type,
     power: device.powerKcal,
-    extraDetails: device.extraDetails,
-    refrigerant: device.refrigerant ? device.refrigerant.refrigerante : "",
-    service: device.service,
-    status: device.status,
-    category: device.category,
-    following: device.following,
-    regDate: device.regDate,
+    refrigerant: device.refrigerant?.refrigerante || "",
     age: device.regDate ? today.getFullYear() - regDate.getFullYear() : "S/D",
-    environment: device.environment,
-    servicePoints: device.servicePoints
-      ? device.servicePoints.map((sp) => sp.name)
-      : [],
+    servicePoints: device.servicePoints?.map((sp) => sp.name) || [],
     taskDates: device.dates,
   };
 }
 
 async function deleteDevice(code) {
-  const device = await Device.findOne({ code });
+  const device = await Device.findOne({ code }).lean();
   // no using servicePoint.devices
   // await ServicePoint.updateMany(
   //   { device: device._id },
@@ -70,23 +61,9 @@ async function deleteDevice(code) {
 
 async function getDevice(id, dates) {
   if (!id) throw new Error("id no ingresado");
-  const device = await Device.findOne({
+  const device = await findFullDeviceData({
     $or: [{ code: id }, { code: id.code }],
-  })
-    .populate("refrigerant")
-    .populate("servicePoints")
-    .populate({
-      path: "line",
-      select: "name",
-      populate: {
-        path: "area",
-        select: "name",
-        populate: {
-          path: "plant",
-          select: "name",
-        },
-      },
-    });
+  });
   if (!device) throw new Error("Equipo no encontrado");
   if (dates) {
     const year = new Date().getFullYear();
@@ -131,9 +108,11 @@ async function allDevices(req, res) {
           populate: { path: "plant", select: "name" },
         },
       })
+      .lean()
       .sort("code");
     res.status(200).send(deviceList.map(buildDevice));
   } catch (e) {
+    console.log(e);
     res.status(400).send({ error: e.message });
   }
 }
@@ -150,7 +129,7 @@ async function findById(req, res) {
 async function getDeviceHistory(req, res) {
   try {
     const { code } = req.query;
-    const device = await Device.findOne({ code });
+    const device = await Device.findOne({ code }).lean();
     const orders = await WorkOrder.find({ device: device._id });
     const interventions = await intController.getByOrder(
       orders.map((order) => order._id)
@@ -332,6 +311,7 @@ async function devicePage(req, res) {
         (page - 1) * pageSize + pageSize
       ),
       pages,
+      quantity: devices.length,
     });
   } catch (e) {
     console.log(e);
@@ -406,18 +386,19 @@ async function addNew(device) {
     servicePoints,
   });
   const stored = await newDevice.save();
-  const addedDevice = await Device.findById(stored._id)
-    .populate("refrigerant")
-    .populate("servicePoints")
-    .populate({
-      path: "line",
-      select: "name",
-      populate: {
-        path: "area",
-        select: "name",
-        populate: { path: "plant", select: "name" },
-      },
-    });
+  const addedDevice = await findFullDeviceData({ _id: stored._id });
+  // Device.findById(stored._id)
+  //   .populate("refrigerant")
+  //   .populate("servicePoints")
+  //   .populate({
+  //     path: "line",
+  //     select: "name",
+  //     populate: {
+  //       path: "area",
+  //       select: "name",
+  //       populate: { path: "plant", select: "name" },
+  //     },
+  //   });
   return buildDevice(addedDevice);
 }
 
@@ -457,6 +438,9 @@ async function updateDevice(req, res) {
       (await Refrigerant.findOne({ refrigerante: device.refrigerant }))._id ||
       baseData.refrigerant;
     if (device.power) device.powerKcal = device.power;
+    if (device.follower)
+      device.follower = await User.findOne({ username: device.follower });
+    if (device.followDate) device.followDate = new Date(device.followDate);
     await Device.findOneAndUpdate(
       { code: device.code, line: device.line._id },
       device
