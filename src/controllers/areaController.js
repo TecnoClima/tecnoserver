@@ -77,7 +77,9 @@ async function addAreaFromApp(req, res) {
 
 async function getAreas(req, res) {
   try {
-    const plants = await plantController.getUsersPlants(req);
+    const plants = req.tokenData
+      ? await plantController.getUsersPlants(req)
+      : await Plant.find({});
     const areas = await Area.find({ plant: plants.map((p) => p._id) })
       .lean()
       .exec();

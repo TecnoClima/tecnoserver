@@ -33,11 +33,13 @@ async function getLines(req, res) {
       result = lines.filter((l) => l.area.name === area);
     } else if (plant) {
       result = lines.filter((l) => l.area.plant.name === plant);
-    } else {
+    } else if (req.tokenData) {
       const plants = await plantController.getUsersPlants(req);
       result = lines.filter((l) =>
         plants.map((p) => p.name).includes(l.area.plant.name)
       );
+    } else {
+      result = lines;
     }
     res.status(200).send(result);
   } catch (e) {

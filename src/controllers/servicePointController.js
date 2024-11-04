@@ -53,7 +53,9 @@ const getAll = async (plantName) => {
 
 const getServicePoints = async (req, res) => {
   try {
-    const plants = await plantController.getUsersPlants(req);
+    const plants = req.tokenData
+      ? await plantController.getUsersPlants(req)
+      : await Plant.find({});
     res
       .status(200)
       .send(await getAll(req.query.plant || plants.map((p) => p.name)));

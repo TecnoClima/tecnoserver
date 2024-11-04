@@ -47,8 +47,10 @@ async function getPlants(req, res) {
     let result;
     if (code || name) {
       result = await getPlant(code ? { code } : name);
-    } else {
+    } else if (req.tokenData) {
       result = await getUsersPlants(req);
+    } else {
+      result = await Plant.find({});
     }
     // result = await getPlant(
     //   code ? { code } : plantName ? { name: plantName } : name ? { name } : {}

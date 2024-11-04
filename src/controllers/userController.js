@@ -163,18 +163,28 @@ function validateToken(req, res, next) {
   try {
     const url = req.url.split("?")[0];
     const authEndpoint = "/users/auth";
-    const publicGetEndpoints = ["/devices/id", "/devices/history"];
+    const publicGetEndpoints = [
+      "/devices/id",
+      "/devices/history",
+      "/plants",
+      "/areas",
+      "/dates/plan",
+      "/lines",
+      "/strategies",
+      "/servicePoints",
+    ];
     if (
-      (url !== authEndpoint && !publicGetEndpoints.includes(url)) ||
-      (method === "GET" && ["/plants", "/areas", "/lines"].includes(url))
+      url !== authEndpoint &&
+      !(publicGetEndpoints.includes(url) && method === "GET")
     ) {
       const accessToken = req.headers.authorization.split(" ")[1];
       if (!accessToken) res.status(400).send({ error: "Access Denied" });
       jwt.verify(accessToken, process.env.SECRET_KEY, (err, user) => {
         if (err) {
-          res
-            .status(400)
-            .send({ error: "Access denied: Token expired or incorrect" });
+          res.status(400).send({
+            error:
+              "Access denied: Token expired or incorrect - ValidationToken",
+          });
         } else {
           req.tokenData = user;
           next();
