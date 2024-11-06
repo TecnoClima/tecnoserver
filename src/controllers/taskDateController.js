@@ -150,15 +150,19 @@ async function addDates(req, res) {
 
 async function getPlan(req, res) {
   try {
-    const user = await userController.getFullUserFromToken(req);
     let plantName = "";
-    if (user.access !== "Admin") {
-      if (user.plant) {
-        plantName = user.plant.name;
-      } else {
-        throw new Error("Usuario no asignado a ninguna planta");
+    let user = null;
+    if (req.tokenData) {
+      user = await userController.getFullUserFromToken(req);
+      if (user.access !== "Admin") {
+        if (user.plant) {
+          plantName = user.plant.name;
+        } else {
+          throw new Error("Usuario no asignado a ninguna planta");
+        }
       }
     }
+
     const year = Number(req.query.year);
     const plant = await Plant.find(plantName ? { name: plantName } : {});
     const strategies = await Strategy.find({
@@ -225,13 +229,14 @@ async function getPlan(req, res) {
       // });
 
       if (
-        user &&
-        (user.access === "Admin" ||
-          (user.access === "Worker" &&
-            date.task.responsible &&
-            date.task.responsible.idNumber == user.idNumber) ||
-          (user.access === "Supervisor" &&
-            date.task.strategy.supervisor.idNumber == user.idNumber))
+        !user ||
+        (user &&
+          (user.access === "Admin" ||
+            (user.access === "Worker" &&
+              date.task.responsible &&
+              date.task.responsible.idNumber == user.idNumber) ||
+            (user.access === "Supervisor" &&
+              date.task.strategy.supervisor.idNumber == user.idNumber)))
       ) {
         plan.push({
           id: date._id,

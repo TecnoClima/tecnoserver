@@ -100,15 +100,19 @@ async function updateStrategy(req, res) {
 async function getStrategies(req, res) {
   try {
     const { year } = req.query;
-    const user = await userController.getFullUserFromToken(req);
     let plantName = "";
-    if (user.access !== "Admin") {
-      if (user.plant) {
-        plantName = user.plant.name;
-      } else {
-        throw new Error("Usuario no asignado a ninguna planta");
+
+    if (req.tokenData) {
+      const user = await userController.getFullUserFromToken(req);
+      if (user.access !== "Admin") {
+        if (user.plant) {
+          plantName = user.plant.name;
+        } else {
+          throw new Error("Usuario no asignado a ninguna planta");
+        }
       }
     }
+
     const plant = (await Plant.find(plantName ? { name: plantName } : {})).map(
       (plant) => plant._id
     );
