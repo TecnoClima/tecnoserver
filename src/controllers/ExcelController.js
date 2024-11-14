@@ -70,6 +70,45 @@ async function loadFromExcel(req, res) {
   }
 }
 
+async function updateFromExcel(req, res) {
+  let errors = [];
+  let updatedItems = [];
+  try {
+    const { schema, items } = req.body;
+
+    switch (schema) {
+      case "Device":
+        const updatePromises = items.map(async ({ deviceCode, frequency }) => {
+          try {
+            await Device.updateOne(
+              { code: deviceCode }, // Busca por el código del dispositivo
+              { $set: { frequency } } // Actualiza la frecuencia
+            );
+            updatedItems.push(deviceCode);
+          } catch (e) {
+            errors.push({
+              code: deviceCode,
+              error: e.message,
+            });
+          }
+        });
+        await Promise.all(updatePromises);
+        break;
+      default:
+        res.status(400).send("No se encontró la tabla a actualizar");
+        break;
+    }
+    const results = { errors };
+    if (updatedItems[0]) results.success = updatedItems;
+    res.status(200).send(results);
+  } catch (e) {
+    console.log(e);
+    res
+      .status(400)
+      .send({ error: e.message, results: { success: addedItems, errors } });
+  }
+}
+
 async function buildExcel(req, res) {
   const modelName = "Device";
   // const modelList = Object.keys(mongoose.models);
@@ -122,5 +161,6 @@ async function buildExcel(req, res) {
 
 module.exports = {
   loadFromExcel,
+  updateFromExcel,
   buildExcel,
 };
