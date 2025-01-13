@@ -41,7 +41,9 @@ async function getAssignedOrders(req, res) {
     const orders = await WorkOrder.find({
       responsible: user._id,
       completed: { $lt: 100 },
-    }).populate(["device", "supervisor", "responsible"]);
+    })
+      .populate(["device", "supervisor", "responsible"])
+      .lean();
     res.send({ result: !!orders.length, list: orders });
   } catch (e) {
     res.send({ result: false, list: [], error: e.message });
@@ -503,7 +505,7 @@ async function deleteWorkOrder(req, res) {
       }));
     await WorkOrder.deleteOne({ _id: order._id });
 
-    res.status(200).send({ result: "success" });
+    res.status(200).send({ result: "success", code });
   } catch (e) {
     res.status(400).send({ error: e.message });
   }
