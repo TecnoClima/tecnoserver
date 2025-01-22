@@ -24,35 +24,45 @@ async function initApp(appConfig, dbUrl) {
     // });
     // Verifica si los certificados existen
     if (fs.existsSync(SSL_KEY_PATH) && fs.existsSync(SSL_CERT_PATH)) {
-      console.log("existen!");
-      // Cargar los certificados SSL
-      const options = {
-        key: fs.readFileSync(SSL_KEY_PATH),
-        cert: fs.readFileSync(SSL_CERT_PATH),
-        passphrase: "tu_contraseña", // Contraseña de la llave privada (si corresponde)
-      };
+      try {
+        console.log("Certificados SSL encontrados");
+        // Cargar los certificados SSL
+        const options = {
+          key: fs.readFileSync(SSL_KEY_PATH),
+          cert: fs.readFileSync(SSL_CERT_PATH),
+        };
+        console.log("Opciones correctas");
 
-      // Crear el servidor HTTPS
-      https.createServer(options, server).listen(443, () => {
-        console.log(`Servidor HTTPS corriendo en el puerto ${443}`);
-      });
-
-      // Redirigir tráfico HTTP a HTTPS (opcional, si usas HTTP en un puerto diferente)
-      const http = require("http");
-      http
-        .createServer((req, res) => {
-          res.writeHead(301, {
-            Location: `https://${req.headers.host}${req.url}`,
-          });
-          res.end();
-        })
-        .listen(appConfig.port, () => {
-          console.log(`Redireccionando tráfico HTTP al puerto appConfig.port`);
+        // Crear el servidor HTTPS
+        https.createServer(options, server).listen(443, () => {
+          console.log(`Servidor HTTPS corriendo en el puerto 443`);
         });
+        console.log("HTTPS creado");
+
+        // Redirigir tráfico HTTP a HTTPS (opcional, si usas HTTP en un puerto diferente)
+        const http = require("http");
+        http
+          .createServer((req, res) => {
+            res.writeHead(301, {
+              Location: `https://${req.headers.host}${req.url}`,
+            });
+            res.end();
+          })
+          .listen(appConfig.port, () => {
+            console.log(
+              `Redireccionando tráfico HTTP al puerto ${appConfig.port}`
+            );
+          });
+        console.log("Redirección exitosa");
+      } catch (e) {
+        // Si algo falla, mostrar el error y conectar http
+        console.error(e.message || e);
+        server.listen(appConfig.port, () => {
+          console.log(`Servidor HTTP corriendo en el puerto ${appConfig.port}`);
+        });
+      }
     } else {
       console.error("Certificados SSL no encontrados. Iniciando en HTTP...");
-
-      // Si los certificados no existen, inicia el servidor en HTTP en el puerto 3001
       server.listen(appConfig.port, () => {
         console.log(`Servidor HTTP corriendo en el puerto ${appConfig.port}`);
       });
