@@ -3,7 +3,6 @@ const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const morgan = require("morgan");
 const cors = require("cors");
-const https = require("https"); // Agrega esta línea para utilizar HTTPS
 const fs = require("fs");
 const path = require("path");
 const routes = require("./routes/index.js");
@@ -19,12 +18,6 @@ accessLogStream.on("error", (err) => {
 });
 
 const server = express();
-
-// Configuración de los certificados SSL
-const options = {
-  key: fs.readFileSync(path.join(__dirname, "certs/mi_certificado.key")),
-  cert: fs.readFileSync(path.join(__dirname, "certs/mi_certificado.crt")),
-};
 
 const { CLIENT_URL } = process.env;
 
@@ -79,15 +72,6 @@ server.use((err, req, res, next) => {
   const message = err.message || err;
   console.error(err);
   res.status(status).send(message);
-});
-
-// Creación del servidor HTTPS con Express
-const PORT = 443; // Puerto para HTTPS
-const httpsServer = https.createServer(options, server);
-
-// Iniciar el servidor HTTPS
-httpsServer.listen(PORT, () => {
-  console.log(`Servidor HTTPS Express iniciado en el puerto ${PORT}`);
 });
 
 module.exports = server;
