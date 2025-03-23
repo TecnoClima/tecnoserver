@@ -153,19 +153,32 @@ async function loadInterventionFromCsv() {
     "OT.csv",
     (row) => {
       return {
-        code: row.Nro_OT,
-        tasks: row["Descripción_OT"],
-        hours: row.Horas_demandadas,
-        otDate:
-          row["Fecha_Emisión"].split(" ")[0] +
-          " " +
-          (row["Hora_Emisión"]
-            ? row["Hora_Emisión"].split(" ")[1]
-            : row["Fecha_Emisión"].split(" ")[1]),
+        //   code: row.Nro_OT,
+        //   tasks: row["Descripción_OT"],
+        //   hours: row.Horas_demandadas,
+        //   otDate:
+        //     row["Fecha_Emisión"].split(" ")[0] +
+        //     " " +
+        //     (row["Hora_Emisión"]
+        //       ? row["Hora_Emisión"].split(" ")[1]
+        //       : row["Fecha_Emisión"].split(" ")[1]),
+        // };
+        code: row.OT,
+        tasks: row["DESCRIPCION"],
+        hours: row["HORAS"],
+        otDate: ["FECHA"],
       };
     },
     []
   );
+
+  function getDate(fechaStr) {
+    const [dia, mes, añoHora] = fechaStr.split("/");
+    const [año, horaMinuto] = añoHora.split(" ");
+    const [hora, minuto] = horaMinuto.split(":");
+
+    return new Date(año, mes - 1, dia, hora, minuto);
+  }
   //then, an arrays of bodies is built from both .csv files
   const itemsToAdd = await fromCsvToJson(
     "OT-INTERVINIENTE.csv",
@@ -178,116 +191,126 @@ async function loadInterventionFromCsv() {
       }
       body.workOrderNumber = row.OT;
       body.workerIDs = [row.Personal];
-      body.tasks = ot ? ot.tasks : null;
-      body.date = row.Fecha
-        ? getDate(row.Fecha)
-        : ot
-        ? getDateAndTime(ot.otDate)
-        : null;
-      body.hours = ot ? ot.hours : null;
+      // body.tasks = ot ? ot.tasks : null;
+      body.tasks = row["DESCRIPCION"];
+      body.date = getDate(row["FECHA"]);
+      body.hours = row["HORAS"];
+      body.register = row["REGISTRO"];
+      // // body.date = row.Fecha
+      // //   ? getDate(row.Fecha)
+      // //   : ot
+      // //   ? getDateAndTime(ot.otDate)
+      // //   : null;
+      // body.hours = ot ? ot.hours : null;
 
-      return { body };
+      return body;
     },
     []
   );
 
   // with the array, the interventions are generated:
   for await (let element of itemsToAdd) {
-    try {
-      //first the workOrder._id is set, and the date, in order to find the intervention.
-      const workOrder = await WorkOrder.findOne({
-          code: element.body.workOrderNumber,
-        }),
-        { date } = element.body;
-      if (!workOrder) {
-        collectError(
-          results.errors,
-          "la OT no existe en Base de Datos",
-          "Interventions",
-          [element.body.workOrderNumber, date]
-        );
-      } else {
-        const { workOrderNumber, workerIDs, tasks, date, hours } = element.body;
-        const interventions = await Intervention.find({
-          _id: workOrder.interventions,
-        });
-
-        if (interventions.length == 0) {
-          // si no existen intervenciones en esa OT, crearla
-          let result = await addIntervention(
-            workOrderNumber,
-            workerIDs,
-            tasks,
-            date,
-            hours
-          );
-          //guardar el resultado en la recopilación de resultados
-          result.OK
-            ? results.ok.push(result.OK[0])
-            : results.errors.push([
-                workOrderNumber,
-                workerIDs,
-                "error desconocido",
-              ]);
-        } else if (
-          interventions.find((e) => e.date.getTime() == date.getTime())
-        ) {
-          // si existe una intervención con esa fecha, agregar trabajadores
-          const workerId = (
-            await User.findOne({ idNumber: element.body.workerIDs[0] })
-          )._id;
-          const actualIntervention = await Intervention.findOne({
-            workOrder: workOrder._id,
-            date: date.getTime(),
-          });
-          if (!actualIntervention.workers.includes(workerId)) {
-            await Intervention.updateOne(
-              { workOrder: workOrder._id, date: date.getTime() },
-              { $push: { workers: workerId } }
-            );
-            results.ok.push([element.body.workOrderNumber, date]);
-          } else {
-            collectError(
-              results.errors,
-              "El interviniente ya se encuetra en esa OT, en esa fecha",
-              "Interventions",
-              element.body.workOrderNumber
-            );
-          }
-        } else {
-          // si no existe una intervención con esa fecha, borrar tasks en tareas anteriores
-          interventions.map(async (intervention) => {
-            if (intervention.date.getTime() < date.getTime()) {
-              await Intervention.updateOne(
-                { workOrder: workOrder._id, date: intervention.date.getTime() },
-                { $unset: { tasks: 1 } }
-              );
-            } else if (intervention.date.getTime() > date.getTime()) {
-              element.body.tasks = undefined;
-            }
-            results.ok.push([element.body.workOrderNumber, date]);
-          });
-
-          // y crear la nueva
-          const newIntervention = await addIntervention(
-            workOrderNumber,
-            workerIDs,
-            tasks,
-            date,
-            hours
-          );
-          results.ok.push(newIntervention);
-        }
-      }
-    } catch (e) {
-      console.log(e);
+    // try {
+    //first the workOrder._id is set, and the date, in order to find the intervention.
+    const workOrder = await WorkOrder.findOne({
+        code: element.workOrderNumber,
+      }),
+      { date } = element;
+    if (!workOrder) {
       collectError(
         results.errors,
-        e.message,
+        "la OT no existe en Base de Datos",
         "Interventions",
-        element.body.workOrderNumber
+        [element.workOrderNumber, date]
       );
+    } else {
+      const { workOrderNumber, workerIDs, tasks, date, hours } = element;
+      const interventions = await Intervention.find({
+        _id: workOrder.interventions,
+      });
+
+      if (interventions.length == 0) {
+        // si no existen intervenciones en esa OT, crearla
+        let result = await addIntervention(
+          workOrderNumber,
+          workerIDs,
+          tasks,
+          date,
+          hours
+        );
+        //guardar el resultado en la recopilación de resultados
+        result.OK
+          ? results.ok.push(result.OK[0])
+          : results.errors.push([
+              workOrderNumber,
+              workerIDs,
+              "error desconocido",
+            ]);
+      } else if (
+        interventions.find((e) => e.date.getTime() == date.getTime())
+      ) {
+        // si existe una intervención con esa fecha, agregar trabajadores
+        const workerId = (
+          await User.findOne({ idNumber: element.workerIDs[0] })
+        )._id;
+        const actualIntervention = await Intervention.findOne({
+          workOrder: workOrder._id,
+          date: date.getTime(),
+        });
+        if (!actualIntervention.workers.includes(workerId)) {
+          await Intervention.updateOne(
+            { workOrder: workOrder._id, date: date.getTime() },
+            { $push: { workers: workerId } }
+          );
+          results.ok.push([element.workOrderNumber, date]);
+        } else {
+          collectError(
+            results.errors,
+            "El interviniente ya se encuetra en esa OT, en esa fecha",
+            "Interventions",
+            element.workOrderNumber
+          );
+        }
+      } else {
+        // si no existe una intervención con esa fecha, borrar tasks en tareas anteriores
+        interventions.map(async (intervention) => {
+          if (intervention.date.getTime() < date.getTime()) {
+            await Intervention.updateOne(
+              { workOrder: workOrder._id, date: intervention.date.getTime() },
+              { $unset: { tasks: 1 } }
+            );
+          } else if (intervention.date.getTime() > date.getTime()) {
+            element.tasks = undefined;
+          }
+          results.ok.push([element.workOrderNumber, date]);
+        });
+
+        // y crear la nueva
+        const newIntervention = await addIntervention(
+          workOrderNumber,
+          workerIDs,
+          tasks,
+          date,
+          hours
+        );
+        console.log(element.register);
+
+        results.ok.push({
+          reg: element.register,
+          intervention: newIntervention,
+        });
+      }
     }
+    // } catch (e) {
+    //   console.log(element.workOrderNumber);
+    //   console.log(e);
+    //   collectError(
+    //     results.errors,
+    //     e.message,
+    //     "Interventions",
+    //     element.workOrderNumber
+    //   );
+    // }
   }
   results.ok = results.ok.length;
   return results;

@@ -20,6 +20,8 @@ const {
 } = require("../../controllers/IntervController");
 const Device = require("../../models/Device");
 const ServicePoint = require("../../models/ServicePoint");
+const WOoptions = require("../../models/WOoptions");
+const Refrigerant = require("../../models/Refrigerant");
 
 const server = Router();
 
@@ -115,12 +117,14 @@ server.post("/useroptions", async (req, res) => {
 
 server.post("/users", async (req, res) => {
   let results = [];
-  try {
-    results.push(await createUsers());
-    res.status(200).send(results);
-  } catch (e) {
-    res.status(500).send(e.message);
-  }
+  console.log("running");
+
+  // try {
+  results.push(await createUsers());
+  res.status(200).send(results);
+  // } catch (e) {
+  //   res.status(500).send(e.message);
+  // }
 });
 
 server.post("/workorders", async (req, res) => {
@@ -150,6 +154,9 @@ server.get("/", async (req, res) => {
 server.post("/", async (req, res) => {
   try {
     var results = [];
+    const gases = await Refrigerant.find({}).lean();
+    console.log(gases.map((g) => g.code));
+
     // results.push(await loadAreasFromCsv());
     // results.push(await loadLinesFromCsv());
     // results.push(await createDeviceOptions());

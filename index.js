@@ -19,11 +19,11 @@ const SSL_CERT_PATH = "/etc/letsencrypt/live/tecnoapp.ddns.net/fullchain.pem"; /
 async function initApp(appConfig, dbUrl) {
   try {
     connectDb(dbUrl);
-    server.listen(appConfig.port, () => {
-      console.log(`Servidor web escuchando en el puerto ${appConfig.port}`);
-    });
     // Verifica si los certificados existen
     if (fs.existsSync(SSL_KEY_PATH) && fs.existsSync(SSL_CERT_PATH)) {
+      server.listen(appConfig.port, () => {
+        console.log(`Servidor web escuchando en el puerto ${appConfig.port}`);
+      });
       try {
         console.log("Certificados SSL encontrados");
         // Cargar los certificados SSL

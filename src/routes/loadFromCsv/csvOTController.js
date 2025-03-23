@@ -213,35 +213,50 @@ async function loadOTfromCsv() {
   const fileName = "OT.csv",
     item = "OT";
   const results = { ok: [], errors: [] };
+
+  function getDate(fechaStr) {
+    const [dia, mes, añoHora] = fechaStr.split("/");
+    const [año, horaMinuto] = añoHora.split(" ");
+    const [hora, minuto] = horaMinuto.split(":");
+
+    return new Date(año, mes - 1, dia, hora, minuto);
+  }
   const functionPush = (row) => {
     return {
-      code: row.Nro_OT,
-      device: row.Equipo.toUpperCase(),
-      servicePoint: row["Lugar de Servicio"],
-      status: row.Status,
-      class: row.Clase,
-      initIssue: row.Problema_Tipo,
-      solicitorName: row.Solicitante,
-      solicitorTel: row.Telefono,
-      otSiderar: row.OT_Siderar,
-      supervisor: row.Supervisor,
-      requestDate: row["Fecha_Emisión"],
-      requestTime: row["Hora_Emisión"],
-      requestUser: row.Usuario_Alta,
-      description: row.Causa_Problematica,
-      cause: row["Clasificación_de_Causa"],
-      closeUser: row.Usuario_Cierre,
-      closeDate: row.Momento_Cierre,
+      // code: row.Nro_OT,
+      // ["MOMENTO_ALTA"]
+      register: row["REGISTRO"],
+      device: row["EQUIPO"].toUpperCase(),
+      servicePoint: row["LUGAR_SERVICIO"],
+      status: row["ESTADO"],
+      class: row["CLASE"],
+      initIssue: row["TIPO"],
+      solicitorName: row["SOLICITANTE"],
+      solicitorTel: row["TELEFONO"],
+      otSiderar: row["OT_PLANTA"],
+      supervisor: row["SUPERVISOR"],
+      requestDate: row["EMISION"],
+      requestTime: row["HORA_EMISION"],
+      requestUser: row["USUARIO_ALTA"],
+      description: row["DESCRIPCION"],
+      cause: row["CAUSA"],
+      closeUser: row["USUARIO_CIERRE"],
+      closeDate: row["MOMENTO_CIERRE"],
     };
   };
   const itemsToAdd = await fromCsvToJson(fileName, functionPush, []);
-  // itemsToAdd.splice(30)
+
   const helpDesk = await Users.findOne({ username: "mayuda" });
-  const options = await WOoptions.findOne({ name: "Work Orders Options" });
+  // const options = await WOoptions.findOne({ name: "Work Orders Options" });
 
   let altDevice = null;
   let altSP = null;
+  let lastCode = (
+    await WorkOrder.find({}).sort({ code: -1 }).limit(1).lean()
+  )[0].code;
+
   for await (let element of itemsToAdd) {
+    console.log(element.register, element.closeDate);
     try {
       const ot = await WorkOrder.findOne({ code: element.code });
       if (ot) {
@@ -275,47 +290,42 @@ async function loadOTfromCsv() {
           });
 
           const newItem = await WorkOrder({
-            code: element.code,
+            code: lastCode + 1,
             device: device ? device._id : altDevice._id,
             servicePoint: servicePoint ? servicePoint._id : altSP._id,
-            status: OTstatus[element.status],
-            class: OTclass[element.class],
-            initIssue: tipoProb[element.initIssue],
+            status: element.status,
+            class: element.class,
+            initIssue: element.initIssue,
             solicitor: {
               name: element.solicitorName,
               phone: element.solicitorTel,
             },
             registration: {
-              date: getDateAndTime(
-                element.requestDate.split(" ")[0] +
-                  " " +
-                  element.requestTime.split(" ")[1]
-              ),
+              date: getDate(`${element.requestDate} ${element.requestTime}`),
               user: regUser ? regUser._id : helpDesk._id,
             },
             clientWO: element.otSiderar,
             supervisor: supervisor._id,
             description: element.description,
-            cause: Object.keys(OTCause).includes(element.cause)
-              ? options.causes.find(
-                  (e) => e.name === OTCause[element.cause].name
-                ).name
-              : null,
+            cause: element.cause,
             closed: element.closeDate
               ? {
-                  date: getDateAndTime(element.closeDate),
+                  date: getDate(element.closeDate),
                   user: closeUser ? closeUser._id : helpDesk._id,
                 }
               : null,
           });
+
+          await newItem.save();
           altDevice = null;
           altSP = null;
-          await newItem.save();
-          results.ok.push(newItem.code);
+          console.log(element.register, newItem.code);
+          lastCode++;
+          results.ok.push({ reg: element.register, code: newItem.code });
         }
       }
     } catch (e) {
-      console.log(e);
+      // console.log(e);
       collectError(results.errors, e.message, item, element.code);
     }
   }
