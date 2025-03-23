@@ -249,6 +249,7 @@ async function getWObyId(req, res) {
         path: "device",
         populate: [
           "refrigerant",
+          "gasAmount",
           {
             path: "line",
             select: "name",
@@ -331,6 +332,7 @@ async function getWObyId(req, res) {
         code: device.code,
         name: device.name,
         type: device.type,
+        gasAmount: device.gasAmount,
         power,
         unit,
         refrigerant: device.refrigerant.refrigerante,
