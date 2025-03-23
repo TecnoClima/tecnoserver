@@ -28,6 +28,9 @@ const DeviceSchema = Schema(
       type: Schema.Types.ObjectId,
       ref: "Refrigerante",
     },
+    gasAmount: {
+      type: Number,
+    },
     extraDetails: {
       type: String,
       autoPopulate: true,
