@@ -122,12 +122,15 @@ async function updateIntervention(req, res) {
       });
     if (update.task) update.tasks = update.task;
     if (update.date) update.date = new Date(update.date + " " + update.time);
+    if (update.endDate)
+      update.endDate = new Date(update.endDate + " " + update.endTime);
     await Intervention.findByIdAndUpdate(id, update);
     const newIntervention = await Intervention.findOne({ _id: id }).populate(
       "workers"
     );
     res.status(200).send(buildIntervention(newIntervention));
   } catch (e) {
+    console.log(e);
     res.status(400).send({ error: e.message });
   }
 }
@@ -141,6 +144,7 @@ function buildIntervention(intervention, gasUsages) {
       name: e.name,
     })),
     task: intervention.tasks,
+    endDate: intervention.endDate,
   };
   if (gasUsages) built.refrigerant = gasUsages || [];
   return built;

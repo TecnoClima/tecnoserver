@@ -350,6 +350,7 @@ async function getWObyId(req, res) {
       const item = {
         id: intervention._id,
         date: intervention.date,
+        endDate: intervention.endDate,
         workers: intervention.workers.map((e) => {
           return { name: e.name, id: e.idNumber };
         }),
