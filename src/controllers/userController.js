@@ -190,7 +190,6 @@ function validateToken(req, res, next) {
           });
         } else {
           req.tokenData = user;
-          console.log("req.tokenData", req.tokenData);
           next();
         }
       });
