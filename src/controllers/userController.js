@@ -173,12 +173,15 @@ function validateToken(req, res, next) {
       "/strategies",
       "/servicePoints",
     ];
+    const accessToken = req.headers.authorization.split(" ")[1];
     if (
-      url !== authEndpoint &&
-      !(publicGetEndpoints.includes(url) && method === "GET")
+      (url !== authEndpoint &&
+        !(publicGetEndpoints.includes(url) && method === "GET")) ||
+      (accessToken && url === "/dates/plan")
     ) {
       const accessToken = req.headers.authorization.split(" ")[1];
       if (!accessToken) res.status(400).send({ error: "Access Denied" });
+
       jwt.verify(accessToken, process.env.SECRET_KEY, (err, user) => {
         if (err) {
           res.status(400).send({
@@ -187,6 +190,7 @@ function validateToken(req, res, next) {
           });
         } else {
           req.tokenData = user;
+          console.log("req.tokenData", req.tokenData);
           next();
         }
       });
