@@ -32,7 +32,10 @@ const userController = require("../controllers/userController");
 // }
 
 async function getTaskDatesByDevice(deviceId, year) {
-  const task = await Task.findOne({ device: deviceId });
+  const task = await Task.findOne({ device: deviceId })
+    .populate("device")
+    .lean();
+
   const dates = await TaskDate.find({
     $and: [
       {
@@ -48,6 +51,7 @@ async function getTaskDatesByDevice(deviceId, year) {
     id: _id,
     date,
     orders: workOrders.map((o) => o.code),
+    device: task.device.code,
   }));
 }
 

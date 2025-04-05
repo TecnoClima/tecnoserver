@@ -27,8 +27,8 @@ function buildOrder(order, taskDate) {
     solicitor: order.solicitor.name,
     date: order.registration.date,
     supervisor: order.supervisor?.name,
-    supervisor: order.responsible?.idNumber,
-    close: order.closed.date || "",
+    responsible: order.responsible?.idNumber,
+    close: order.closed?.date || "",
     description: order.description,
     servicePoint: order.servicePoint && order.servicePoint.name,
     taskDate,
@@ -51,7 +51,7 @@ async function getAssignedOrders(req, res) {
 }
 
 async function getListData(input) {
-  return await (typeof input === "object"
+  const order = await (typeof input === "object"
     ? WorkOrder.find(input)
     : WorkOrder.findOne({ code: input })
   )
@@ -75,7 +75,9 @@ async function getListData(input) {
     })
     .populate({ path: "registration", populate: "user" })
     .populate({ path: "supervisor", select: ["id", "name"] })
-    .populate("servicePoint");
+    .populate("servicePoint")
+    .lean();
+  return order;
 }
 
 async function getByDevice(deviceCode, clase) {
@@ -657,6 +659,137 @@ async function generateReport(req, res) {
   }
 }
 
+async function checkData(req, res) {
+  try {
+    const data = req.body;
+    const deviceCodes = data.map(({ deviceCode }) => deviceCode);
+    const spCodes = data.map(({ spCode }) => spCode);
+
+    const devices = await Device.find({ code: { $in: deviceCodes } }).lean();
+    const servicePoints = await ServicePoint.find({
+      code: { $in: spCodes },
+    }).lean();
+    const taskDates = (
+      await Promise.all(
+        devices.map(
+          async (d) =>
+            await getTaskDatesByDevice(d._id, new Date().getFullYear())
+        )
+      )
+    ).flat(1);
+    const result = {
+      devices: devices.map((e) => e.code),
+      servicePoints: servicePoints.map((e) => e.code),
+      taskDates: devices.reduce((acc, device) => {
+        const code = device.code;
+        acc[code] = taskDates
+          .filter((d) => d.device === code)
+          .map(({ date }) => new Date(date).toISOString().split("T")[0]);
+        return acc;
+      }, {}),
+    };
+    res.status(200).send(result);
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ error: e.message });
+  }
+}
+
+async function loadFromExcel(req, res) {
+  try {
+    const data = req.body;
+    const devices = await Device.find({
+      code: { $in: data.map((element) => element["EQUIPO"]) },
+    }).lean();
+    const servicePoints = await ServicePoint.find({
+      code: { $in: data.map((element) => element["LUGAR_SERVICIO"]) },
+    }).lean();
+    const supervisors = await User.find({
+      idNumber: { $in: data.map((element) => element["SUPERVISOR_ID"]) },
+    }).lean();
+    const user = await User.findOne({ idNumber: req.tokenData.id });
+    const responsibles = await User.find({
+      idNumber: { $in: data.map((element) => element["RESPONSABLE_ID"]) },
+    }).lean();
+    const lastOrder = await WorkOrder.findOne(
+      {},
+      {},
+      { sort: { code: -1 } }
+    ).lean();
+    const lastCode = lastOrder.code;
+    const results = (
+      await Promise.all(
+        data.map(async (element, i) => {
+          const device = devices.find((d) => d.code === element["EQUIPO"]);
+          const sp = servicePoints.find(
+            (d) => d.code === element["LUGAR_SERVICIO"]
+          );
+
+          const supervisor = supervisors.find(
+            ({ idNumber }) => idNumber === element["SUPERVISOR_ID"]
+          );
+          const responsible = responsibles.find(
+            ({ idNumber }) => idNumber === element["RESPONSABLE_ID"]
+          );
+
+          const newItem = await WorkOrder({
+            code: lastCode + i + 1,
+            device: device,
+            servicePoint: sp,
+            status: "Abierta",
+            class: element["CLASE"],
+            initIssue: element["TIPO"],
+            solicitorName: element["SOLICITANTE"],
+            solicitorTel: element["TELEFONO"],
+            clientWO: element["OT_PLANTA"],
+            supervisor: supervisor,
+            registration: {
+              date: new Date(element["EMISION"]),
+              user,
+            },
+            solicitor: {
+              name: element["SOLICITANTE"],
+              phone: element["TELEFONO"],
+            },
+            responsible: responsible,
+            description: element["DESCRIPCION"],
+            cause: element["CAUSA"],
+          });
+
+          const storedItem = await newItem.save();
+
+          if (element["FECHA_PLAN"]) {
+            const elementDate = new Date(element["FECHA_PLAN"])
+              .toISOString()
+              .split("T")[0];
+            const taskDates = await getTaskDatesByDevice(
+              device,
+              new Date().getFullYear()
+            );
+            const taskDate = taskDates.find(
+              ({ date }) => date.toISOString().split("T")[0] === elementDate
+            );
+            await TaskDates.findByIdAndUpdate(taskDate.id, {
+              $push: { workOrders: newItem._id },
+            });
+          }
+          return storedItem;
+        })
+      )
+    ).flat(1);
+    const orderList = (
+      await Promise.all(
+        results.map(async ({ code }) => await getListData(code))
+      )
+    ).map(buildOrder);
+
+    res.status(200).send(orderList);
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ error: e.message });
+  }
+}
+
 module.exports = {
   getByDevice,
 
@@ -669,4 +802,6 @@ module.exports = {
   updateWorkOrder,
   generateReport,
   getAssignedOrders,
+  checkData,
+  loadFromExcel,
 };
