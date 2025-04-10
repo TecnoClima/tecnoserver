@@ -250,6 +250,7 @@ async function getWObyId(req, res) {
       .populate({
         path: "device",
         populate: [
+          "servicePoints",
           "refrigerant",
           "gasAmount",
           {
@@ -343,6 +344,7 @@ async function getWObyId(req, res) {
         category: device.category,
         following: device.following,
         service: device.service,
+        servicePoints: device.servicePoints.map((e) => e.name),
       },
     };
 

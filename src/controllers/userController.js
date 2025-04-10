@@ -179,7 +179,6 @@ function validateToken(req, res, next) {
         !(publicGetEndpoints.includes(url) && method === "GET")) ||
       (accessToken && url === "/dates/plan")
     ) {
-      const accessToken = req.headers.authorization.split(" ")[1];
       if (!accessToken) res.status(400).send({ error: "Access Denied" });
 
       jwt.verify(accessToken, process.env.SECRET_KEY, (err, user) => {
