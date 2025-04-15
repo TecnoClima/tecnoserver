@@ -38,9 +38,13 @@ function buildOrder(order, taskDate) {
 async function getAssignedOrders(req, res) {
   try {
     const user = await User.findOne({ idNumber: req.tokenData.id });
+
     const orders = await WorkOrder.find({
       responsible: user._id,
-      completed: { $lt: 100 },
+      $or: [
+        { completed: { $lt: 100 } },
+        { completed: { $exists: false } }, // también podrías usar: { completed: null } si querés capturar valores nulos
+      ]
     })
       .populate(["device", "supervisor", "responsible"])
       .lean();
