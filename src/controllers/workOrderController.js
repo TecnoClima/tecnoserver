@@ -46,7 +46,7 @@ async function getAssignedOrders(req, res) {
         { completed: { $exists: false } }, // también podrías usar: { completed: null } si querés capturar valores nulos
       ]
     })
-      .populate(["device", "supervisor", "responsible"])
+      .populate([{path:"device",populate:{path:"line",populate:{path:"area", populate:{path:"plant"}}}}, "supervisor", "responsible"])
       .lean();
     res.send({ result: !!orders.length, list: orders });
   } catch (e) {
