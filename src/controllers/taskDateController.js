@@ -138,7 +138,7 @@ async function addDates(req, res) {
           date: new Date(date.date),
           completed: 0,
           workOrders: (
-            await WorkOrder.find({ code: date.orders })
+            await WorkOrder.find({ code: date.orders, deletion: null })
           ).map((order) => order._id),
         });
         await newDate.save();

@@ -100,7 +100,9 @@ async function getRefrigerant(req, res) {
 
 async function addUsage(code, consumption, interventionId) {
   try {
-    const intervention = await Intervention.findOne({ _id: interventionId });
+    const intervention = await Intervention.findOne({
+      _id: interventionId,
+    });
     if (!intervention)
       throw new Error("La intervención no existe en base de datos");
     const cylinder = await Cylinder.findOne({ code: code });
@@ -128,7 +130,10 @@ async function postUsage(req, res) {
   try {
     const workOrder = await WorkOrder.findOne({ code: wOCode });
     if (!workOrder) throw new Error("Orden de Trabajo no encontrada");
-    const interventions = await Intervention.find({ workOrder: workOrder._id });
+    const interventions = await Intervention.find({
+      workOrder: workOrder._id,
+      isDeleted: { $ne: true },
+    });
     const intervention = interventions.find(
       (intervention) => intervention.date.toISOString().split("T")[0] === date
     );
@@ -207,7 +212,7 @@ async function deleteCylinder(req, res) {
 // async function deleteCylinderUsage(req, res){
 //   const {code, order, date, consumption} = req.body
 //   const workOrder = await WorkOrder.findOne({code: order})
-//   const intervention = ( await Intervention.findOne({workOrder: workOrder._id, date}) )._id
+//   const intervention = ( await One({workOrder: workOrder._id, date}) )._id
 //   const cylinder = await Cylinder.findOneAndUpdate({code},{
 //     $pull:{usages: {intervention, consumption} }
 //   })

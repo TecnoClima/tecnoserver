@@ -13,10 +13,10 @@ const {
 } = require("../utils/utils");
 
 async function getByOrder(workOrder) {
-  const interventions = await Intervention.find({ workOrder }).populate([
-    "workers",
-    "workOrder",
-  ]);
+  const interventions = await Intervention.find({
+    workOrder,
+    isDeleted: { $ne: true },
+  }).populate(["workers", "workOrder"]);
   return interventions;
 }
 //************ FUNCTIONS USED IN ENPOINTS ******************/
@@ -231,6 +231,7 @@ async function loadInterventionFromCsv() {
       const { workOrderNumber, workerIDs, tasks, date, hours } = element;
       const interventions = await Intervention.find({
         _id: workOrder.interventions,
+        isDeleted: { $ne: true },
       });
 
       if (interventions.length == 0) {

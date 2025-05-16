@@ -252,7 +252,7 @@ async function loadOTfromCsv() {
   let altDevice = null;
   let altSP = null;
   let lastCode = (
-    await WorkOrder.find({}).sort({ code: -1 }).limit(1).lean()
+    await WorkOrder.find({ deletion: null }).sort({ code: -1 }).limit(1).lean()
   )[0].code;
 
   for await (let element of itemsToAdd) {

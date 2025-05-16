@@ -130,7 +130,7 @@ async function getDeviceHistory(req, res) {
   try {
     const { code } = req.query;
     const device = await Device.findOne({ code }).lean();
-    const orders = await WorkOrder.find({ device: device._id });
+    const orders = await WorkOrder.find({ device: device._id, deletion: null });
     const interventions = await intController.getByOrder(
       orders.map((order) => order._id)
     );
@@ -267,6 +267,7 @@ async function devicePage(req, res) {
         class: "Reclamo",
         "registration.date": { $gte: calculateDate(1) },
         device: { $in: devices },
+        deletion: null,
       }).populate({ path: "device", select: "code" });
       const count = devices.map((d) => ({
         code: d.code,

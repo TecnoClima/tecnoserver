@@ -30,6 +30,7 @@ const InterventionSchema = Schema(
     endDate: {
       type: Date,
     },
+    isDeleted: { type: Boolean, default: false },
   },
   {
     timestamps: true,

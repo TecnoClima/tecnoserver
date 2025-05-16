@@ -90,6 +90,13 @@ const WorkOrderSchema = Schema(
         },
       ],
     },
+    deletion: {
+      at: { type: Date },
+      by: {
+        type: Schema.Types.ObjectId, // from table Users
+        ref: "Users",
+      },
+    },
   },
   {
     timestamps: true,

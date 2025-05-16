@@ -13,6 +13,7 @@ const devController = require("./deviceController");
 const userController = require("./userController");
 const Task = require("../models/Task");
 const { getTaskDatesByDevice } = require("./taskDateController");
+const workOrderController = require("../controllersV2/workOrder");
 
 function buildOrder(order, taskDate) {
   return {
@@ -44,9 +45,20 @@ async function getAssignedOrders(req, res) {
       $or: [
         { completed: { $lt: 100 } },
         { completed: { $exists: false } }, // también podrías usar: { completed: null } si querés capturar valores nulos
-      ]
+      ],
+      deletion: null,
     })
-      .populate([{path:"device",populate:{path:"line",populate:{path:"area", populate:{path:"plant"}}}}, "supervisor", "responsible"])
+      .populate([
+        {
+          path: "device",
+          populate: {
+            path: "line",
+            populate: { path: "area", populate: { path: "plant" } },
+          },
+        },
+        "supervisor",
+        "responsible",
+      ])
       .lean();
     res.send({ result: !!orders.length, list: orders });
   } catch (e) {
@@ -56,7 +68,7 @@ async function getAssignedOrders(req, res) {
 
 async function getListData(input) {
   const order = await (typeof input === "object"
-    ? WorkOrder.find(input)
+    ? WorkOrder.find({ ...input, deletion: null })
     : WorkOrder.findOne({ code: input })
   )
     .populate({
@@ -88,7 +100,7 @@ async function getByDevice(deviceCode, clase) {
   const device = await devController.findById(deviceCode);
   const matches = { device: device._id };
   if (clase) matches.class = clase;
-  return await WorkOrder.find(matches);
+  return await WorkOrder.find({ ...matches, deletion: null });
 }
 
 async function getMostRecent(req, res) {
@@ -96,7 +108,7 @@ async function getMostRecent(req, res) {
     const { limit, conditions } = req.body;
     const causes = (await WOoptions.findOne({ name: "Work Orders Options" }))
       .causes;
-    let otList = await WorkOrder.find(conditions)
+    let otList = await WorkOrder.find({ ...conditions, deletion: null })
       .sort({ "registration.date": -1 })
       .limit(limit || 10)
       .lean()
@@ -283,6 +295,7 @@ async function getWObyId(req, res) {
 
     const interventions = await Intervention.find({
       workOrder: workOrder._id,
+      isDeleted: { $ne: true },
     }).populate("workers");
 
     const gasUsage = await CylinderUse.find({
@@ -430,7 +443,7 @@ async function newInterventions(interventions, order) {
 async function getWOList(req, res) {
   try {
     const user = await userController.getFullUserFromToken(req);
-    const filters = {};
+    const filters = { deletion: null };
     const { year } = req.query;
     let plantName = "";
     if (user.access !== "Admin") {
@@ -503,18 +516,26 @@ async function getWOList(req, res) {
 async function deleteWorkOrder(req, res) {
   try {
     const { code } = req.params;
-    const order = await WorkOrder.findOne({ code: code });
-    const interventions = await WorkOrder.find({ _id: order.interventions });
-    const gasUsages = await CylinderUse.find({
-      interventions_id: interventions,
+    const user = await User.findOne({ idNumber: req.tokenData.id });
+    await workOrderController.setDeleted({
+      identifier: { code },
+      userId: user._id,
+      value: true,
     });
 
-    await CylinderUse.deleteMany({ _id: gasUsages.map((item) => item._id) });
-    interventions &&
-      (await Intervention.deleteMany({
-        _id: interventions.map((item) => item._id),
-      }));
-    await WorkOrder.deleteOne({ _id: order._id });
+    // const order = await WorkOrder.findOne({ code: code });
+    // const interventions = await Intervention.find({ _id: order.interventions });
+    // const gasUsages = await CylinderUse.find({
+    //   interventions_id: interventions,
+    //   isDeleted: { $ne: true },
+    // });
+
+    // await CylinderUse.deleteMany({ _id: gasUsages.map((item) => item._id) });
+    // interventions &&
+    //   (await Intervention.deleteMany({
+    //     _id: interventions.map((item) => item._id),
+    //   }));
+    // await WorkOrder.deleteOne({ _id: order._id });
 
     res.status(200).send({ result: "success", code });
   } catch (e) {
@@ -609,7 +630,10 @@ async function updateWorkOrder(req, res) {
 async function generateReport(req, res) {
   try {
     const { orderIds } = req.body;
-    const orders = await WorkOrder.find({ code: { $in: orderIds } })
+    const orders = await WorkOrder.find({
+      code: { $in: orderIds },
+      deletion: null,
+    })
       .populate({
         path: "device",
         populate: {
