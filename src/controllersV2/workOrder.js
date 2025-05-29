@@ -22,11 +22,9 @@ async function setDeleted({ identifier, userId, value }) {
           }
         : null,
     });
-
     const interventions = await interventionController.getByOrders(
       orders.map((order) => order._id)
     );
-
     await interventionController.updateInterventions(
       interventions.map((int) => int._id),
       {

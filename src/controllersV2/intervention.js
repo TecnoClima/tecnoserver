@@ -10,7 +10,7 @@ async function getInterventions(identifiers) {
 }
 async function getByOrders(orders) {
   try {
-    return await getInterventions({ order: { $in: orders } });
+    return await getInterventions({ workOrder: { $in: orders } });
   } catch (e) {
     console.log(e);
     return { error: e.message };
