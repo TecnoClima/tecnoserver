@@ -21,7 +21,7 @@ async function loadFromExcel(req, res) {
     switch (schema) {
       case "Device":
         await Promise.all(
-          items.map(async (item) => {
+          items.map(async (item, index) => {
             try {
               if (item.code) {
                 const check = await Device.findOne({ code: item.code });
@@ -44,7 +44,7 @@ async function loadFromExcel(req, res) {
               );
               item.regDate = new Date(item.regDate);
               item.active = item.active.toLowerCase() === "si";
-              const newItem = await deviceController.addNew(item);
+              const newItem = await deviceController.addNew(item, index);
               addedItems.push(newItem);
             } catch (e) {
               console.log(e);

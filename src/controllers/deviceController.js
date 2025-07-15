@@ -355,7 +355,7 @@ async function fullDeviceOptions(req, res) {
   }
 }
 
-async function addNew(device) {
+async function addNew(device, index) {
   const { line, power, refrigerant } = device;
 
   if (!device.code) {
@@ -367,9 +367,10 @@ async function addNew(device) {
       ? parseInt(lineDevices[0].code.match(/\d+$/)[0])
       : 0;
 
+    const newCode = lastCode + 1 + (index ?? 0);
     device.code =
       line.code +
-      `-${lastCode < 99 ? `${lastCode < 9 ? "0" : ""}0` : ""}${lastCode + 1}`;
+      `-${newCode <= 99 ? `${newCode <= 9 ? "0" : ""}0` : ""}${newCode}`;
   }
 
   const servicePoints =
