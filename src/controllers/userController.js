@@ -88,7 +88,9 @@ async function addUser(req, res) {
 async function login(req, res) {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username: username }).populate("plant");
+    const user = await User.findOne({
+      username: { $regex: username, $options: "i" },
+    }).populate("plant");
     if (!user)
       throw new Error(
         "Usuario o Contraseña incorrecta, intente de nuevo por favor"
