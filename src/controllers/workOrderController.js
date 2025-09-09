@@ -416,7 +416,7 @@ async function newInterventions(interventions, order) {
           idNumber: i.workers.map((item) => item.id),
         }),
         tasks: i.task,
-        date: new Date(`${i.date} ${i.time}`),
+        date: new Date(i.time ? `${i.date} ${i.time}` : `${i.date}`),
       });
       const intervention = await newItem.save();
       if (i.refrigerant) {
@@ -504,6 +504,7 @@ async function getWOList(req, res) {
           close: order.closed.date || "",
           description: order.description,
           servicePoint: order.servicePoint && order.servicePoint.name,
+          completed: order.completed,
         };
       });
     res.status(200).send(array.sort((a, b) => (a.code < b.code ? 1 : -1)));
