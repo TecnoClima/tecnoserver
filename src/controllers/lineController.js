@@ -9,6 +9,32 @@ const Device = require("../models/Device");
 const mongoose = require("mongoose");
 const Plant = require("../models/Plant");
 
+async function getLinesByLocation({ line, area, plant }) {
+  let result;
+  const lines = await Line.find({})
+    .populate({
+      path: "area",
+      select: "name",
+      populate: { path: "plant", select: "name" },
+    })
+    .lean();
+  if (line) {
+    result = lines.filter((l) => l.name === line);
+  } else if (area) {
+    result = lines.filter((l) => l.area.name === area);
+  } else if (plant) {
+    result = lines.filter((l) => l.area.plant.name === plant);
+  } else if (req.tokenData) {
+    const plants = await plantController.getUsersPlants(req);
+    result = lines.filter((l) =>
+      plants.map((p) => p.name).includes(l.area.plant.name)
+    );
+  } else {
+    result = lines;
+  }
+  return result;
+}
+
 async function findByNameAndParents(lineName, areaName, plantName) {
   const area = await areaController.getAreaByNameAndParents(
     areaName,
@@ -19,28 +45,28 @@ async function findByNameAndParents(lineName, areaName, plantName) {
 }
 
 async function getLines(req, res) {
-  const { line, area, plant } = req.query;
+  // const { line, area, plant } = req.query;
   try {
-    let result;
-    const lines = await Line.find({}).populate({
-      path: "area",
-      select: "name",
-      populate: { path: "plant", select: "name" },
-    });
-    if (line) {
-      result = lines.filter((l) => l.name === line);
-    } else if (area) {
-      result = lines.filter((l) => l.area.name === area);
-    } else if (plant) {
-      result = lines.filter((l) => l.area.plant.name === plant);
-    } else if (req.tokenData) {
-      const plants = await plantController.getUsersPlants(req);
-      result = lines.filter((l) =>
-        plants.map((p) => p.name).includes(l.area.plant.name)
-      );
-    } else {
-      result = lines;
-    }
+    let result = await getLinesByLocation(req.query);
+    //   const lines = await Line.find({}).populate({
+    //     path: "area",
+    //     select: "name",
+    //     populate: { path: "plant", select: "name" },
+    //   });
+    //   if (line) {
+    //     result = lines.filter((l) => l.name === line);
+    //   } else if (area) {
+    //     result = lines.filter((l) => l.area.name === area);
+    //   } else if (plant) {
+    //     result = lines.filter((l) => l.area.plant.name === plant);
+    //   } else if (req.tokenData) {
+    //     const plants = await plantController.getUsersPlants(req);
+    //     result = lines.filter((l) =>
+    //       plants.map((p) => p.name).includes(l.area.plant.name)
+    //     );
+    //   } else {
+    //     result = lines;
+    //   }
     res.status(200).send(result);
   } catch (e) {
     console.log(e);
@@ -225,5 +251,6 @@ module.exports = {
   getLineByName,
   updateLine,
 
+  getLinesByLocation,
   findByNameAndParents,
 };

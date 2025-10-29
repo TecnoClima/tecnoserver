@@ -10,10 +10,12 @@ const TaskDates = require("../models/TaskDates");
 const XLSX = require("xlsx");
 
 const devController = require("./deviceController");
+const lineController = require("./lineController");
 const userController = require("./userController");
 const Task = require("../models/Task");
 const { getTaskDatesByDevice } = require("./taskDateController");
 const workOrderController = require("../controllersV2/workOrder");
+const Plant = require("../models/Plant");
 
 function buildOrder(order, taskDate) {
   return {
@@ -822,6 +824,54 @@ async function loadFromExcel(req, res) {
   }
 }
 
+async function updateSupervisors(req, res) {
+  try {
+    const plant = await Plant.findOne({ code: req.query.plant }).lean();
+    const lines = await lineController.getLinesByLocation({
+      plant: plant.name,
+    });
+    const devices = await Device.find({
+      line: { $in: lines.map((l) => l._id) },
+    }).lean();
+    const currentSupervisor = await User.findOne({
+      idNumber: Number(req.query.supervisor),
+    }).lean();
+    const newSupervisor = req.body.supervisor
+      ? await User.findOne({
+          idNumber: Number(req.body.supervisor),
+        }).lean()
+      : null;
+
+    const filters = {
+      supervisor: currentSupervisor._id,
+      status: "Abierta",
+      deletion: null,
+      device: { $in: devices.map((d) => d._id) },
+    };
+
+    if (newSupervisor) {
+      const updatedOrders = await WorkOrder.updateMany(filters, {
+        supervisor: newSupervisor._id,
+      });
+      const updatedCount =
+        updatedOrders.modifiedCount ?? updatedOrders.length ?? 0;
+      res.status(200).send({ success: true, amount: updatedCount });
+    } else {
+      const orders = await WorkOrder.find(filters)
+        .populate({ path: "supervisor", select: "name" })
+        .lean();
+      res.status(200).send({
+        result: "success",
+        amount: orders.length,
+        orders: orders.map(({ code }) => code),
+      });
+    }
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ error: e.message });
+  }
+}
+
 module.exports = {
   getByDevice,
 
@@ -836,4 +886,6 @@ module.exports = {
   getAssignedOrders,
   checkData,
   loadFromExcel,
+
+  updateSupervisors,
 };
