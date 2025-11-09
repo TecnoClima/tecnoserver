@@ -10,6 +10,7 @@ const Refrigerant = require("../models/Refrigerant");
 const spController = require("../controllers/servicePointController");
 const ServicePoint = require("../models/ServicePoint");
 const userController = require("./userController");
+const Intervention = require("../models/Intervention");
 
 const mongoose = require("mongoose");
 const { getDeviceDates } = require("./taskDateController");
@@ -727,6 +728,152 @@ async function getDevicesReport(req, res) {
   }
 }
 
+async function getReclamoInterventionAverage(req, res) {
+  try {
+    const { plant, from, to } = req.query;
+    if (!plant || !from || !to) {
+      throw new Error("Los parámetros plant, from y to son obligatorios");
+    }
+
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+      throw new Error("Las fechas proporcionadas no son válidas");
+    }
+
+    if (fromDate > toDate) {
+      throw new Error(
+        "La fecha inicial no puede ser posterior a la fecha final"
+      );
+    }
+
+    const plantDoc = await Plant.findOne({
+      $or: [{ code: plant }, { name: plant }],
+    });
+
+    if (!plantDoc) {
+      throw new Error("Planta no encontrada");
+    }
+
+    const areas = await Area.find({ plant: plantDoc._id }).select("_id");
+    if (!areas.length) {
+      return res.status(200).send({
+        plant: plantDoc.name,
+        from: fromDate,
+        to: toDate,
+        devices: [],
+      });
+    }
+
+    const lines = await Line.find({
+      area: { $in: areas.map((area) => area._id) },
+    }).select("_id");
+
+    if (!lines.length) {
+      return res.status(200).send({
+        plant: plantDoc.name,
+        from: fromDate,
+        to: toDate,
+        devices: [],
+      });
+    }
+
+    const devices = await Device.find({
+      line: { $in: lines.map((line) => line._id) },
+    })
+      .select("_id code name")
+      .lean();
+
+    if (!devices.length) {
+      return res.status(200).send({
+        plant: plantDoc.name,
+        from: fromDate,
+        to: toDate,
+        devices: [],
+      });
+    }
+
+    const deviceIdSet = devices.map((device) => device._id);
+
+    const workOrders = await WorkOrder.find({
+      device: { $in: deviceIdSet },
+      class: "Reclamo",
+      deletion: null,
+    })
+      .select("_id device")
+      .lean();
+
+    if (!workOrders.length) {
+      return res.status(200).send({
+        plant: plantDoc.name,
+        from: fromDate,
+        to: toDate,
+        devices: devices.map((device) => ({
+          code: device.code,
+          name: device.name,
+          averageHours: null,
+          interventionsCount: 0,
+        })),
+      });
+    }
+
+    const workOrderIds = workOrders.map((workOrder) => workOrder._id);
+    const workOrderDeviceMap = workOrders.reduce((acc, workOrder) => {
+      acc[workOrder._id.toString()] = workOrder.device.toString();
+      return acc;
+    }, {});
+
+    const interventions = await Intervention.find({
+      workOrder: { $in: workOrderIds },
+      date: { $gte: fromDate, $lte: toDate },
+    })
+      .select("workOrder date endDate")
+      .lean();
+
+    const durations = {};
+
+    interventions.forEach((intervention) => {
+      if (!intervention.endDate) return;
+      const start = new Date(intervention.date);
+      const end = new Date(intervention.endDate);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+      const durationMs = end - start;
+      if (durationMs < 0) return;
+      const deviceId = workOrderDeviceMap[intervention.workOrder.toString()];
+      if (!deviceId) return;
+      if (!durations[deviceId]) {
+        durations[deviceId] = { totalMs: 0, count: 0 };
+      }
+      durations[deviceId].totalMs += durationMs;
+      durations[deviceId].count += 1;
+    });
+
+    console.log("durations.length", Object.keys(durations));
+
+    const result = devices.map((device) => {
+      const stats = durations[device._id.toString()];
+      return {
+        code: device.code,
+        name: device.name,
+        averageHours: stats
+          ? Number((stats.totalMs / stats.count / (1000 * 60 * 60)).toFixed(2))
+          : null,
+        interventionsCount: stats ? stats.count : 0,
+      };
+    });
+
+    res.status(200).send({
+      plant: plantDoc.name,
+      from: fromDate,
+      to: toDate,
+      devices: result,
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ error: e.message });
+  }
+}
+
 module.exports = {
   addNew,
   deleteDevice,
@@ -746,4 +893,5 @@ module.exports = {
   devicesByName,
   getOptions,
   getDevicesReport,
+  getReclamoInterventionAverage,
 };
