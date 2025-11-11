@@ -65,6 +65,47 @@ function isoDate(givenDate) {
   return `${date.split("T")[0]} ${date.split("T")[1].slice(0, 5)}`;
 }
 
+/**
+ * Convierte una cadena tipo "YYYY-MM-DD HH:MM" (hora local del cliente)
+ * a una fecha UTC (ajustada según el timezone del sistema).
+ */
+function parseToUTC(dateTimeString) {
+  if (!dateTimeString) return null;
+
+  const [datePart, timePart = "00:00"] = dateTimeString.split(" ");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+
+  const local = new Date(year, month - 1, day, hour, minute);
+  // Restar el timezoneOffset para llevarlo a UTC
+  return new Date(local.getTime() - local.getTimezoneOffset() * 60000);
+}
+
+/**
+ * Convierte una fecha UTC (Date o string) a formato "YYYY-MM-DD HH:MM"
+ * en hora local de Argentina (America/Argentina/Buenos_Aires)
+ */
+function formatToArgentinaTime(date) {
+  if (!date) return "";
+
+  const d = new Date(date);
+
+  const options = {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  };
+
+  const parts = new Intl.DateTimeFormat("en-CA", options).formatToParts(d);
+  const lookup = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+
+  return `${lookup.year}-${lookup.month}-${lookup.day} ${lookup.hour}:${lookup.minute}`;
+}
+
 module.exports = {
   fromCsvToJson,
   objectFromArrays,
@@ -73,4 +114,6 @@ module.exports = {
   getDate,
   getDateAndTime,
   isoDate,
+  parseToUTC,
+  formatToArgentinaTime,
 };

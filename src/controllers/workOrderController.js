@@ -16,6 +16,7 @@ const Task = require("../models/Task");
 const { getTaskDatesByDevice } = require("./taskDateController");
 const workOrderController = require("../controllersV2/workOrder");
 const Plant = require("../models/Plant");
+const { parseToUTC, formatToArgentinaTime } = require("../utils/utils");
 
 function buildOrder(order, taskDate) {
   return {
@@ -220,8 +221,10 @@ async function addOrder(req, res) {
             idNumber: intervention.workers.map((item) => item.id),
           }),
           tasks: intervention.task,
-          date: new Date(`${intervention.date} ${intervention.time}`),
-          endDate: new Date(`${intervention.endDate} ${intervention.endTime}`),
+          date: parseToUTC(`${intervention.date} ${intervention.time}`),
+          endDate: parseToUTC(
+            `${intervention.endDate} ${intervention.endTime}`
+          ),
         });
 
         const newIntervention = await newItem.save();
@@ -373,8 +376,10 @@ async function getWObyId(req, res) {
     for (let intervention of interventions) {
       const item = {
         id: intervention._id,
-        date: intervention.date,
-        endDate: intervention.endDate,
+        date: formatToArgentinaTime(intervention.date),
+        endDate: intervention.endDate
+          ? formatToArgentinaTime(intervention.endDate)
+          : undefined,
         workers: intervention.workers.map((e) => {
           return { name: e.name, id: e.idNumber };
         }),
@@ -411,6 +416,7 @@ async function getWObyId(req, res) {
 }
 
 async function newInterventions(interventions, order) {
+  console.log("interventions", interventions);
   return await Promise.all(
     interventions.map(async (i) => {
       const newItem = await Intervention({
@@ -419,8 +425,10 @@ async function newInterventions(interventions, order) {
           idNumber: i.workers.map((item) => item.id),
         }),
         tasks: i.task,
-        date: new Date(i.time ? `${i.date} ${i.time}` : `${i.date}`),
-        endDate: i.endDate ? new Date(`${i.endDate} ${i.endTime}`) : undefined,
+        date: parseToUTC(i.time ? `${i.date} ${i.time}` : `${i.date}`),
+        endDate: i.endDate
+          ? parseToUTC(`${i.endDate} ${i.endTime}`)
+          : undefined,
       });
       const intervention = await newItem.save();
       if (i.refrigerant) {
