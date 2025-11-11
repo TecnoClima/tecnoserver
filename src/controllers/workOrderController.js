@@ -221,6 +221,7 @@ async function addOrder(req, res) {
           }),
           tasks: intervention.task,
           date: new Date(`${intervention.date} ${intervention.time}`),
+          endDate: new Date(`${intervention.endDate} ${intervention.endTime}`),
         });
 
         const newIntervention = await newItem.save();
@@ -419,6 +420,7 @@ async function newInterventions(interventions, order) {
         }),
         tasks: i.task,
         date: new Date(i.time ? `${i.date} ${i.time}` : `${i.date}`),
+        endDate: i.endDate ? new Date(`${i.endDate} ${i.endTime}`) : undefined,
       });
       const intervention = await newItem.save();
       if (i.refrigerant) {
