@@ -71,14 +71,11 @@ function isoDate(givenDate) {
  */
 function parseToUTC(dateTimeString) {
   if (!dateTimeString) return null;
-
   const [datePart, timePart = "00:00"] = dateTimeString.split(" ");
   const [year, month, day] = datePart.split("-").map(Number);
   const [hour, minute] = timePart.split(":").map(Number);
 
-  const local = new Date(year, month - 1, day, hour, minute);
-  // Restar el timezoneOffset para llevarlo a UTC
-  return new Date(local.getTime() - local.getTimezoneOffset() * 60000);
+  return new Date(year, month - 1, day, hour, minute);
 }
 
 /**
