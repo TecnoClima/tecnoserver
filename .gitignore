@@ -105,3 +105,5 @@ dist
 
 src/access-csv/
 dump/
+src/models/modelsAll.js
+src/routes/loadFromCsv/csvRoutes.js

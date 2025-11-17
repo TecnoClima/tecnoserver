@@ -15,6 +15,7 @@ const {
   devicePage,
   getDevicesReport,
   getReclamoInterventionAverage,
+  getKPIs,
 } = require("../controllers/deviceController");
 const server = express.Router();
 
@@ -34,4 +35,5 @@ server.get("/byLine/:lineName", devicesByLine);
 server.get("/byName/:name", devicesByName);
 server.post("/report", getDevicesReport);
 server.get("/reclamoAverage", getReclamoInterventionAverage);
+server.get("/mtbf", getKPIs);
 module.exports = server;

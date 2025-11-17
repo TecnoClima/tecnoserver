@@ -15,6 +15,7 @@ const Intervention = require("../models/Intervention");
 const mongoose = require("mongoose");
 const { getDeviceDates } = require("./taskDateController");
 const User = require("../models/User");
+const { mtbfPipeline } = require("../pipelines/MTBF");
 
 async function findFullDeviceData(identifier) {
   return await Device.findOne(identifier)
@@ -874,6 +875,104 @@ async function getReclamoInterventionAverage(req, res) {
   }
 }
 
+async function getKPIs(req, res) {
+  try {
+    const { plant: plantCode, from, to } = req.query;
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    const plant = await Plant.findOne({ code: plantCode }).lean();
+    const areas = await Area.find({ plant: plant._id }).lean();
+    const lines = await Line.find({
+      area: { $in: areas.map((a) => a._id) },
+    }).lean();
+    const devices = await Device.find({
+      line: { $in: lines.map((l) => l._id) },
+    }).lean();
+
+    const orders = await WorkOrder.find({
+      device: { $in: devices.map((d) => d._id) },
+      "registration.date": { $gte: fromDate, $lte: toDate },
+    }).lean();
+
+    const interventions = await Intervention.find({
+      workOrder: { $in: orders.map((o) => o._id) },
+      date: { $gte: fromDate, $lte: toDate },
+      isDeleted: false,
+    })
+      .populate({
+        path: "workOrder",
+        select: ["code", "class", "device", "registration"],
+        populate: { path: "device", select: ["code", "name"] },
+      })
+      .sort({ date: 1 })
+      .lean();
+
+    // console.log(interventions);
+
+    const data = devices.map((d) => {
+      const deviceInterventions = interventions.filter(
+        (i) => i.workOrder.device.code === d.code
+      );
+      const totalReclaims = interventions.filter(
+        (i) =>
+          i.workOrder.device.code === d.code && i.workOrder.class === "Reclamo"
+      );
+      const reclaims = interventions.filter(
+        (i) =>
+          i.workOrder.device.code === d.code &&
+          i.workOrder.class === "Reclamo" &&
+          !!i.endDate
+      );
+
+      const timesBetweenFlaws = reclaims.map((r, i) => {
+        const index = deviceInterventions.findIndex((i) => i._id === r._id);
+        let diff = 1;
+        let prev = deviceInterventions[index - diff];
+        while (prev.workOrder.code === r.workOrder.code) {
+          diff++;
+          prev = deviceInterventions[index - diff];
+        }
+        if (!prev) return 0;
+        const time = r.workOrder.registration.date - prev.date;
+        return time;
+      });
+
+      return {
+        device: d.code,
+        name: d.name,
+        totalReclaims: totalReclaims.length,
+        lastOrder: deviceInterventions.filter(
+          (i) => i.workOrder?.class !== "Reclamo"
+        )[0]?.workOrder.code,
+        pendingClose: totalReclaims
+          .filter((r) => !r.endDate)
+          .map((r) => r.workOrder.code),
+        reclaims: reclaims.length,
+        mttr:
+          reclaims.reduce((acc, curr) => acc + (curr.endDate - curr.date), 0) /
+          reclaims.length /
+          1000 /
+          60 /
+          60,
+        mtbf:
+          timesBetweenFlaws
+            .filter((i) => i > 0)
+            .reduce((acc, curr) => acc + curr, 0) /
+          timesBetweenFlaws.length /
+          1000 /
+          60 /
+          60 /
+          24,
+      };
+    });
+
+    return res.status(200).send(data);
+  } catch (err) {
+    console.error("MTBF error:", err);
+    return res.status(500).send({ error: err.message });
+  }
+}
+
 module.exports = {
   addNew,
   deleteDevice,
@@ -894,4 +993,5 @@ module.exports = {
   getOptions,
   getDevicesReport,
   getReclamoInterventionAverage,
+  getKPIs,
 };
