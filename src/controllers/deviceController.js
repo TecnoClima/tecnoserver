@@ -928,14 +928,26 @@ async function getKPIs(req, res) {
         const index = deviceInterventions.findIndex((i) => i._id === r._id);
         let diff = 1;
         let prev = deviceInterventions[index - diff];
-        while (prev.workOrder.code === r.workOrder.code) {
+        if (!prev) return undefined;
+        while (prev?.workOrder.code === r.workOrder.code) {
           diff++;
           prev = deviceInterventions[index - diff];
         }
-        if (!prev) return 0;
         const time = r.workOrder.registration.date - prev.date;
         return time;
       });
+
+      const mtbf =
+        timesBetweenFlaws.filter((i) => i > 0).length > 0
+          ? timesBetweenFlaws
+              .filter((i) => i > 0)
+              .reduce((acc, curr) => acc + curr, 0) /
+            timesBetweenFlaws.filter((i) => i > 0).length /
+            1000 /
+            60 /
+            60 /
+            24
+          : null;
 
       return {
         device: d.code,
@@ -954,15 +966,7 @@ async function getKPIs(req, res) {
           1000 /
           60 /
           60,
-        mtbf:
-          timesBetweenFlaws
-            .filter((i) => i > 0)
-            .reduce((acc, curr) => acc + curr, 0) /
-          timesBetweenFlaws.length /
-          1000 /
-          60 /
-          60 /
-          24,
+        mtbf,
       };
     });
 
