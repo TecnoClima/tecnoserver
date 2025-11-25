@@ -849,8 +849,6 @@ async function getReclamoInterventionAverage(req, res) {
       durations[deviceId].count += 1;
     });
 
-    console.log("durations.length", Object.keys(durations));
-
     const result = devices.map((device) => {
       const stats = durations[device._id.toString()];
       return {
@@ -889,6 +887,8 @@ async function getKPIs(req, res) {
       line: { $in: lines.map((l) => l._id) },
     }).lean();
 
+    const totalHours = (toDate - fromDate) / 1000 / 60 / 60;
+
     const orders = await WorkOrder.find({
       device: { $in: devices.map((d) => d._id) },
       "registration.date": { $gte: fromDate, $lte: toDate },
@@ -913,41 +913,23 @@ async function getKPIs(req, res) {
       const deviceInterventions = interventions.filter(
         (i) => i.workOrder.device.code === d.code
       );
-      const totalReclaims = interventions.filter(
-        (i) =>
-          i.workOrder.device.code === d.code && i.workOrder.class === "Reclamo"
+      const totalReclaims = deviceInterventions.filter(
+        (i) => i.workOrder.class === "Reclamo"
       );
-      const reclaims = interventions.filter(
-        (i) =>
-          i.workOrder.device.code === d.code &&
-          i.workOrder.class === "Reclamo" &&
-          !!i.endDate
+      const reclaims = deviceInterventions.filter(
+        (i) => i.workOrder.class === "Reclamo" && !!i.endDate
       );
-
-      const timesBetweenFlaws = reclaims.map((r, i) => {
-        const index = deviceInterventions.findIndex((i) => i._id === r._id);
-        let diff = 1;
-        let prev = deviceInterventions[index - diff];
-        if (!prev) return undefined;
-        while (prev?.workOrder.code === r.workOrder.code) {
-          diff++;
-          prev = deviceInterventions[index - diff];
-        }
-        const time = r.workOrder.registration.date - prev.date;
-        return time;
-      });
+      const totalInterventionsHours =
+        deviceInterventions.reduce(
+          (acc, curr) => acc + (curr.endDate - curr.date),
+          0
+        ) /
+        1000 /
+        60 /
+        60;
 
       const mtbf =
-        timesBetweenFlaws.filter((i) => i > 0).length > 0
-          ? timesBetweenFlaws
-              .filter((i) => i > 0)
-              .reduce((acc, curr) => acc + curr, 0) /
-            timesBetweenFlaws.filter((i) => i > 0).length /
-            1000 /
-            60 /
-            60 /
-            24
-          : null;
+        (totalHours - totalInterventionsHours) / totalReclaims.length / 24;
 
       return {
         device: d.code,
@@ -956,7 +938,7 @@ async function getKPIs(req, res) {
         lastOrder: deviceInterventions.filter(
           (i) => i.workOrder?.class !== "Reclamo"
         )[0]?.workOrder.code,
-        pendingClose: totalReclaims
+        pendingClose: deviceInterventions
           .filter((r) => !r.endDate)
           .map((r) => r.workOrder.code),
         reclaims: reclaims.length,
