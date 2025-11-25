@@ -929,7 +929,7 @@ async function getKPIs(req, res) {
         60;
 
       const mtbf =
-        (totalHours - totalInterventionsHours) / totalReclaims.length / 24;
+        (totalHours - totalInterventionsHours) / totalReclaims.length;
 
       return {
         device: d.code,
