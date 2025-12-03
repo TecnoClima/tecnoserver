@@ -121,9 +121,8 @@ async function updateIntervention(req, res) {
         idNumber: update.workers.map((e) => e.id),
       });
     if (update.task) update.tasks = update.task;
-    if (update.date) update.date = new Date(update.date + " " + update.time);
-    if (update.endDate)
-      update.endDate = new Date(update.endDate + " " + update.endTime);
+    if (update.date) update.date = new Date(update.date);
+    if (update.endDate) update.endDate = new Date(update.endDate);
     await Intervention.findByIdAndUpdate(id, update);
     const newIntervention = await Intervention.findOne({ _id: id }).populate(
       "workers"
