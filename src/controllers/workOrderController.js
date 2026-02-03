@@ -839,6 +839,7 @@ async function updateSupervisors(req, res) {
     const plant = await Plant.findOne({ code: req.query.plant }).lean();
     const lines = await lineController.getLinesByLocation({
       plant: plant.name,
+      req,
     });
     const devices = await Device.find({
       line: { $in: lines.map((l) => l._id) },

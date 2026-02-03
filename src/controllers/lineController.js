@@ -9,7 +9,7 @@ const Device = require("../models/Device");
 const mongoose = require("mongoose");
 const Plant = require("../models/Plant");
 
-async function getLinesByLocation({ line, area, plant }) {
+async function getLinesByLocation({ line, area, plant, req }) {
   let result;
   const lines = await Line.find({})
     .populate({
@@ -24,7 +24,7 @@ async function getLinesByLocation({ line, area, plant }) {
     result = lines.filter((l) => l.area.name === area);
   } else if (plant) {
     result = lines.filter((l) => l.area.plant.name === plant);
-  } else if (req.tokenData) {
+  } else if (req?.tokenData) {
     const plants = await plantController.getUsersPlants(req);
     result = lines.filter((l) =>
       plants.map((p) => p.name).includes(l.area.plant.name)
