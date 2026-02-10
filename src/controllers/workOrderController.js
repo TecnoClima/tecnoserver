@@ -198,7 +198,7 @@ async function addOrder(req, res) {
         date: new Date(),
         user: (
           await User.findOne({
-            username: workOrder.user,
+            idNumber: workOrder.user,
           })
         )._id,
       },
@@ -222,9 +222,9 @@ async function addOrder(req, res) {
           }),
           tasks: intervention.task,
           date: parseToUTC(`${intervention.date} ${intervention.time}`),
-          endDate: parseToUTC(
-            `${intervention.endDate} ${intervention.endTime}`
-          ),
+          endDate: intervention.endDate
+            ? parseToUTC(`${intervention.endDate} ${intervention.endTime}`)
+            : undefined,
         });
 
         const newIntervention = await newItem.save();
