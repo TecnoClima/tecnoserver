@@ -10,6 +10,7 @@ const {
   fromCsvToJson,
   finalResults,
   getDateAndTime,
+  parseToUTC,
 } = require("../utils/utils");
 
 async function getByOrder(workOrder) {
@@ -18,6 +19,37 @@ async function getByOrder(workOrder) {
     isDeleted: { $ne: true },
   }).populate(["workers", "workOrder"]);
   return interventions;
+}
+async function newIntervention(intervention, order) {
+  const newItem = await Intervention({
+    workOrder: order._id,
+    workers: await User.find({
+      idNumber: intervention.workers.map((item) => item.id),
+    }),
+    tasks: intervention.task,
+    date: parseToUTC(`${intervention.date} ${intervention.time}`),
+    endDate: intervention.endDate
+      ? parseToUTC(`${intervention.endDate} ${intervention.endTime}`)
+      : undefined,
+  });
+  await newItem.save();
+  if (intervention.refrigerant) {
+    const gasUsages = [];
+    for await (let cylinder of intervention.refrigerant) {
+      let item = await Cylinder.findOne({ code: cylinder.code });
+      let user = await User.findOne({ idNumber: cylinder.user });
+
+      const usage = await CylinderUse({
+        cylinder: item._id,
+        intervention: newItem._id,
+        user,
+        consumption: cylinder.total,
+      });
+      gasUsages.push(await usage.save());
+    }
+    newItem.gasUsages = gasUsages;
+  }
+  return newItem;
 }
 //************ FUNCTIONS USED IN ENPOINTS ******************/
 
@@ -55,21 +87,10 @@ async function addIntervention(workOrderNumber, workerIDs, tasks, date, hours) {
 
 async function createIntervention(req, res) {
   try {
-    const { order, date, time, task, refrigerant } = req.body;
+    const { order, refrigerant } = req.body;
     const workOrder = await WorkOrder.findOne({ code: order });
-    const workers = await User.find({
-      idNumber: req.body.workers.map((e) => e.id),
-    });
-    const dateTime = new Date(date + " " + time);
-
-    const intervention = await Intervention({
-      workOrder: workOrder._id,
-      workers: workers.map((e) => e._id),
-      tasks: task,
-      date: dateTime,
-    });
-    const newItem = await intervention.save();
-    const newIntervention = await Intervention.findOne({
+    const newItem = await newIntervention(req.body, workOrder);
+    const intervention = await Intervention.findOne({
       _id: newItem._id,
     }).populate(["workers", "workOrder"]);
 
@@ -80,7 +101,7 @@ async function createIntervention(req, res) {
       for await (let usage of refrigerant) {
         const newCylinder = await CylinderUse({
           cylinder: cylinder.find((item) => item.code === usage.code)._id,
-          intervention: newIntervention._id,
+          intervention: intervention._id,
           user: await User.findOne({ idNumber: usage.user }),
           consumption: usage.total,
         });
@@ -88,12 +109,13 @@ async function createIntervention(req, res) {
       }
     }
     const usages = await CylinderUse.find({
-      intervention: newIntervention._id,
+      intervention: intervention._id,
     }).populate("cylinder");
     res
       .status(200)
-      .send(buildIntervention(newIntervention, buildGasUsages(usages)));
+      .send(buildIntervention(intervention, buildGasUsages(usages)));
   } catch (e) {
+    console.error(e);
     res.status(400).send({ error: e.message });
   }
 }
@@ -322,6 +344,7 @@ async function loadInterventionFromCsv() {
 
 module.exports = {
   getByOrder,
+  newIntervention,
 
   addIntervention,
   loadInterventionFromCsv,

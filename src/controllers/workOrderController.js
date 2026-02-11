@@ -17,6 +17,7 @@ const { getTaskDatesByDevice } = require("./taskDateController");
 const workOrderController = require("../controllersV2/workOrder");
 const Plant = require("../models/Plant");
 const { parseToUTC, formatToArgentinaTime } = require("../utils/utils");
+const { newIntervention } = require("./IntervController");
 
 function buildOrder(order, taskDate) {
   return {
@@ -215,38 +216,8 @@ async function addOrder(req, res) {
     if (workOrder.interventions) {
       newOrder.interventions = [];
       for await (let intervention of workOrder.interventions) {
-        const newItem = await Intervention({
-          workOrder: newOrder._id,
-          workers: await User.find({
-            idNumber: intervention.workers.map((item) => item.id),
-          }),
-          tasks: intervention.task,
-          date: parseToUTC(`${intervention.date} ${intervention.time}`),
-          endDate: intervention.endDate
-            ? parseToUTC(`${intervention.endDate} ${intervention.endTime}`)
-            : undefined,
-        });
-
-        const newIntervention = await newItem.save();
-
-        // creating gasUsages for interventions
-        if (intervention.refrigerant) {
-          const gasUsages = [];
-          for await (let cylinder of intervention.refrigerant) {
-            let item = await Cylinder.findOne({ code: cylinder.code });
-            let user = await User.findOne({ idNumber: cylinder.user });
-
-            const usage = await CylinderUse({
-              cylinder: item._id,
-              intervention: newIntervention._id,
-              user,
-              consumption: cylinder.total,
-            });
-            gasUsages.push(await usage.save());
-          }
-          newIntervention.gasUsages = gasUsages;
-        }
-        newOrder.interventions.push(newIntervention);
+        const newItem = await newIntervention(intervention, newOrder);
+        newOrder.interventions.push(newItem);
       }
     }
 
