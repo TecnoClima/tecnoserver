@@ -14,6 +14,11 @@ const taskRoutes = require("./tasks");
 const csvRoutes = require("./loadFromCsv/csvRoutes");
 const datesRoutes = require("./dates");
 const excelRoutes = require("./excel");
+const groupPartRoutes = require("./groupPart.routes");
+const techTaskRoutes = require("./techTask.routes");
+const taskOptionRoutes = require("./taskOption.routes");
+const taskTemplateRoutes = require("./taskTemplate.routes");
+const techOrderRoutes = require("./techOrder.routes");
 
 const server = Router();
 
@@ -31,5 +36,10 @@ server.use("/tasks", taskRoutes);
 server.use("/csvupdate", csvRoutes);
 server.use("/dates", datesRoutes);
 server.use("/excel", excelRoutes);
+server.use("/group-parts", groupPartRoutes);
+server.use("/tech-tasks", techTaskRoutes);
+server.use("/task-options", taskOptionRoutes);
+server.use("/task-templates", taskTemplateRoutes);
+server.use("/work-orders", techOrderRoutes);
 
 module.exports = server;
