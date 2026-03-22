@@ -35,6 +35,13 @@ const TechSubtaskSchema = Schema(
       type: String,
       enum: ["ok", "fail", "na"],
     },
+    availableOptions: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "TaskOption",
+      },
+    ],
+    allowCustomValue: Boolean,
     comments: {
       type: String,
     },

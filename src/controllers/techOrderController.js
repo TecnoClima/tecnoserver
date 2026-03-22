@@ -5,7 +5,19 @@ const TaskTemplate = require("../models/TaskTemplate");
 
 // Subtask population paths for tech orders
 const TECH_POPULATE = [
-  { path: "device", select: "code name type line", populate: { path: "line", select: "name", populate: { path: "area", select: "name", populate: { path: "plant", select: "name" } } } },
+  {
+    path: "device",
+    select: "code name type line",
+    populate: {
+      path: "line",
+      select: "name",
+      populate: {
+        path: "area",
+        select: "name",
+        populate: { path: "plant", select: "name" },
+      },
+    },
+  },
   { path: "tech.subtasks.groupPart", select: "name" },
   { path: "tech.subtasks.task", select: "name" },
   { path: "tech.subtasks.selectedOption", select: "label" },
@@ -15,15 +27,29 @@ const TECH_POPULATE = [
 
 function validateSubtasks(subtasks) {
   for (const st of subtasks) {
-    if (!st.groupPart || !mongoose.isValidObjectId(st.groupPart))
+    // 🔥 VALIDACIÓN BASE (estructura)
+    if (!st.groupPart || !mongoose.isValidObjectId(st.groupPart)) {
       return "Each subtask requires a valid groupPart id";
-    if (!st.task || !mongoose.isValidObjectId(st.task))
+    }
+
+    if (!st.task || !mongoose.isValidObjectId(st.task)) {
       return "Each subtask requires a valid task id";
-    const hasOption = st.selectedOption && mongoose.isValidObjectId(st.selectedOption);
-    const hasCustom = typeof st.customValue === "string" && st.customValue.trim().length > 0;
-    if (!hasOption && !hasCustom)
-      return "Each subtask requires either selectedOption or customValue";
+    }
+
+    const hasOption =
+      st.selectedOption && mongoose.isValidObjectId(st.selectedOption);
+
+    const hasCustom =
+      typeof st.customValue === "string" &&
+      st.customValue.trim().length > 0;
+
+    // 🔥 VALIDACIÓN DE NEGOCIO
+    // Solo exigir valor si hay resultado
+    if (st.result && !hasOption && !hasCustom) {
+      return "If result is set, a value is required";
+    }
   }
+
   return null;
 }
 
@@ -42,7 +68,7 @@ async function createTechOrder(req, res) {
     if (!device) return res.status(404).send({ error: "Device not found" });
 
     const lastOrder = await WorkOrder.findOne({}, {}, { sort: { code: -1 } }).lean();
-    const code = lastOrder ? lastOrder.code + 1 : 10000;
+    let code = lastOrder ? lastOrder.code + 1 : 10000;
 
     // Build tech subdocument
     const tech = {
@@ -62,10 +88,29 @@ async function createTechOrder(req, res) {
       if (!template)
         return res.status(404).send({ error: "TaskTemplate not found" });
 
+      // tech.subtasks = template.subtasks.map((st) => ({
+      //   groupPart: st.groupPart,
+      //   task: st.task,
+      //   
+      // }));
       tech.subtasks = template.subtasks.map((st) => ({
+        templateId: template._id,
+
         groupPart: st.groupPart,
         task: st.task,
+
+        // snapshot
+        // groupPartName: st.groupPartName || undefined,
+        // taskName: st.taskName || undefined,
+
         // options from template are available choices; no selectedOption yet
+        selectedOption: null,
+        customValue: null,
+        result: null,
+        comments: "",
+
+        availableOptions: st.options || [],
+        allowCustomValue: st.allowCustomValue || false,
       }));
     } else if (body.tech?.subtasks?.length) {
       const err = validateSubtasks(body.tech.subtasks);
@@ -73,27 +118,53 @@ async function createTechOrder(req, res) {
       tech.subtasks = body.tech.subtasks;
     }
 
-    const newOrder = new WorkOrder({
-      code,
-      device: device._id,
-      type: "tech",
-      status: body.status || "Abierta",
-      class: body.class,
-      description: body.description,
-      solicitor: body.solicitor || { name: "Sistema" },
-      registration: {
-        date: new Date(),
-        user: body.registrationUser || undefined,
-      },
-      responsible: body.responsible || undefined,
-      supervisor: body.supervisor || undefined,
-      clientWO: body.clientWO,
-      tech,
-    });
+    let attempts = 0;
+    let savedOrder = null;
 
-    await newOrder.save();
+    while (attempts < 3 && !savedOrder) {
+      try {
+        const newOrder = new WorkOrder({
+          code,
+          device: device._id,
+          type: "tech",
+          status: body.status || "Abierta",
+          class: body.class,
+          description: body.description,
+          solicitor: body.solicitor || { name: "Sistema" },
+          registration: {
+            date: new Date(),
+            user: body.registrationUser || undefined,
+          },
+          responsible: body.responsible || undefined,
+          supervisor: body.supervisor || undefined,
+          clientWO: body.clientWO,
+          tech,
+        });
 
-    const populated = await WorkOrder.findById(newOrder._id).populate(TECH_POPULATE).lean();
+        if (tech.subtasks.length) {
+          const err = validateSubtasks(tech.subtasks);
+          if (err) return res.status(400).send({ error: err });
+        }
+
+        savedOrder = await newOrder.save();
+      } catch (e) {
+        if (e.code === 11000) {
+          code += 1; // 🔥 clave
+          attempts += 1;
+        } else {
+          throw e;
+        }
+      }
+    }
+
+    if (!savedOrder) {
+      return res.status(500).send({ error: "Could not generate unique code" });
+    }
+
+    const populated = await WorkOrder
+      .findById(savedOrder._id)
+      .populate(TECH_POPULATE)
+      .lean();
     res.status(201).send(populated);
   } catch (e) {
     console.log(e);
@@ -105,7 +176,7 @@ async function getTechOrders(req, res) {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const skip = parseInt(req.query.skip) || 0;
-    const filter = { type: "tech", deletion: null };
+    const filter = { type: "tech", "deletion.at": { $exists: false } };
 
     if (req.query.status) filter.status = req.query.status;
 
@@ -192,7 +263,10 @@ async function updateTechOrder(req, res) {
       }
     }
 
-    await WorkOrder.updateOne({ _id: id }, { $set: update });
+    await WorkOrder.updateOne(
+      { _id: id, type: "tech" },
+      { $set: update }
+    );
 
     const updated = await WorkOrder.findById(id).populate(TECH_POPULATE).lean();
     res.status(200).send(updated);
