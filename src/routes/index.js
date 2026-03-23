@@ -19,6 +19,7 @@ const techTaskRoutes = require("./techTask.routes");
 const taskOptionRoutes = require("./taskOption.routes");
 const taskTemplateRoutes = require("./taskTemplate.routes");
 const techOrderRoutes = require("./techOrder.routes");
+const optionsRoutes = require("./options");
 
 const server = Router();
 
@@ -41,5 +42,6 @@ server.use("/tech-tasks", techTaskRoutes);
 server.use("/task-options", taskOptionRoutes);
 server.use("/task-templates", taskTemplateRoutes);
 server.use("/work-orders", techOrderRoutes);
+server.use("/options", optionsRoutes);
 
 module.exports = server;
