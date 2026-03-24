@@ -1,32 +1,43 @@
 const mongoose = require("mongoose");
-const Schema = mongoose.Schema;
 
-const OptionSchema = Schema(
+const OptionSchema = new mongoose.Schema(
   {
-    code: {
+    value: {
       type: String,
       required: true,
-      unique: true,
-      autopopulate: true,
     },
-    collection: {
-      type: String,
-      enum: ["workOrder", "device", "user"],
-    },
-    values: {
-      type: [String],
+    label: {
+      type: String, // opcional, por si querés mostrar algo distinto
     },
     color: {
-      type: [String],
-      required: false,
+      type: String,
     },
-    isActive: {
+    targetCollection: {
+      type: String, // "workOrder", "device", etc.
+      required: true,
+      index: true,
+    },
+    type: {
+      type: String, // "clase", "type", "service", etc.
+      required: true,
+      index: true,
+    },
+    metadata: {
+      type: Object, // para cosas extra sin romper el schema
+    },
+    active: {
       type: Boolean,
+      default: true,
+    },
+    order: {
+      type: Number,
+      default: 0,
     },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 );
+
+// Opcional: evitar duplicados lógicos
+OptionSchema.index({ value: 1, collection: 1, type: 1 }, { unique: true });
 
 module.exports = mongoose.model("Options", OptionSchema);

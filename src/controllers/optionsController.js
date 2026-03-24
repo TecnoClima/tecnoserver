@@ -11,32 +11,70 @@ const MODEL_MAP = {
 };
 
 /**
- * Checks whether any of the given values are in use in the corresponding
- * collection, using the option's code as the field name to query.
+ * Checks whether a specific value is currently in use in the target collection,
+ * using the option's `type` as the field name to query.
  *
- * @param {string} collectionName - "workOrder" | "device" | "user"
- * @param {string} fieldName - the option code, used as the field name in the target model
- * @param {string[]} values - values to check
+ * @param {string} collectionName - e.g. "workOrder", "device", "user"
+ * @param {string} fieldName - the option `type` (field in the target model)
+ * @param {string} value - the option `value` to check
  * @returns {Promise<boolean>}
  */
-async function checkValuesInUse(collectionName, fieldName, values) {
-  if (!values || values.length === 0) return false;
+async function checkValueInUse(collectionName, fieldName, value) {
   const Model = MODEL_MAP[collectionName];
   if (!Model) return false;
-  const count = await Model.countDocuments({ [fieldName]: { $in: values } });
+  const count = await Model.countDocuments({ [fieldName]: value });
   return count > 0;
 }
 
 async function createOption(req, res) {
   try {
-    const { code, collection, values, color, isActive } = req.body;
-    if (!code)
-      return res.status(400).send({ success: false, message: "code is required" });
+    const {
+      value,
+      label,
+      color,
+      targetCollection,
+      type,
+      metadata,
+      active,
+      order,
+    } = req.body;
 
-    const option = new Options({ code, collection, values, color, isActive });
+    if (!value)
+      return res
+        .status(400)
+        .send({ success: false, message: "value is required" });
+    if (!targetCollection)
+      return res
+        .status(400)
+        .send({ success: false, message: "targetCollection is required" });
+    if (!type)
+      return res
+        .status(400)
+        .send({ success: false, message: "type is required" });
+
+    const option = new Options({
+      value,
+      label,
+      color,
+      targetCollection,
+      type,
+      metadata,
+      active,
+      order,
+    });
+
     const saved = await option.save();
-    res.status(201).send({ success: true, data: saved, message: "Option created" });
+    res
+      .status(201)
+      .send({ success: true, data: saved, message: "Option created" });
   } catch (e) {
+    // Duplicate key error (value + collection + type must be unique)
+    if (e.code === 11000)
+      return res.status(400).send({
+        success: false,
+        message:
+          "An option with this value, targetCollection and type already exists",
+      });
     res.status(400).send({ success: false, message: e.message });
   }
 }
@@ -44,19 +82,33 @@ async function createOption(req, res) {
 async function getOptions(req, res) {
   try {
     const filter = {};
-    if (req.query.collection) filter.collection = req.query.collection;
+    if (req.query.targetCollection)
+      filter.targetCollection = req.query.targetCollection;
+    if (req.query.type) filter.type = req.query.type;
+    if (req.query.active !== undefined)
+      filter.active = req.query.active !== "false";
 
-    const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    const skip = (page - 1) * limit;
+    // const page = Math.max(parseInt(req.query.page) || 1, 1);
+    // const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    // const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
-      Options.find(filter).skip(skip).limit(limit).lean(),
+      Options.find(filter)
+        .sort({ order: 1, value: 1 })
+        // .skip(skip)
+        // .limit(limit)
+        .lean(),
       Options.countDocuments(filter),
     ]);
 
-    res.status(200).send({ success: true, data, total, page, limit });
+    res.status(200).send({
+      success: true,
+      data,
+      total,
+      //  page, limit
+    });
   } catch (e) {
+    console.log(e);
     res.status(400).send({ success: false, message: e.message });
   }
 }
@@ -69,7 +121,9 @@ async function getOptionById(req, res) {
 
     const option = await Options.findById(id).lean();
     if (!option)
-      return res.status(404).send({ success: false, message: "Option not found" });
+      return res
+        .status(404)
+        .send({ success: false, message: "Option not found" });
 
     res.status(200).send({ success: true, data: option });
   } catch (e) {
@@ -85,44 +139,51 @@ async function updateOption(req, res) {
 
     const existing = await Options.findById(id).lean();
     if (!existing)
-      return res.status(404).send({ success: false, message: "Option not found" });
+      return res
+        .status(404)
+        .send({ success: false, message: "Option not found" });
 
-    const { values, color, isActive } = req.body;
+    const { value, label, color, metadata, active, order } = req.body;
     const update = {};
 
-    if (color !== undefined) update.color = color;
-    if (isActive !== undefined) update.isActive = isActive;
-
-    if (values !== undefined) {
-      const oldValues = existing.values || [];
-      const removedValues = oldValues.filter((v) => !values.includes(v));
-
-      if (removedValues.length > 0) {
-        const inUse = await checkValuesInUse(
-          existing.collection,
-          existing.code,
-          removedValues
-        );
-        if (inUse) {
-          return res.status(400).send({
-            success: false,
-            message:
-              "Cannot remove values because one or more values are currently in use",
-          });
-        }
+    // If value is being changed, ensure the old value is not in use
+    if (value !== undefined && value !== existing.value) {
+      const inUse = await checkValueInUse(
+        existing.targetCollection,
+        existing.type,
+        existing.value,
+      );
+      if (inUse) {
+        return res.status(400).send({
+          success: false,
+          message: "Cannot change value because it is currently in use",
+        });
       }
-
-      update.values = values;
+      update.value = value;
     }
+
+    if (label !== undefined) update.label = label;
+    if (color !== undefined) update.color = color;
+    if (metadata !== undefined) update.metadata = metadata;
+    if (active !== undefined) update.active = active;
+    if (order !== undefined) update.order = order;
 
     const updated = await Options.findByIdAndUpdate(
       id,
       { $set: update },
-      { new: true }
+      { new: true },
     ).lean();
 
-    res.status(200).send({ success: true, data: updated, message: "Option updated" });
+    res
+      .status(200)
+      .send({ success: true, data: updated, message: "Option updated" });
   } catch (e) {
+    if (e.code === 11000)
+      return res.status(400).send({
+        success: false,
+        message:
+          "An option with this value, targetCollection and type already exists",
+      });
     res.status(400).send({ success: false, message: e.message });
   }
 }
@@ -135,20 +196,20 @@ async function deleteOption(req, res) {
 
     const existing = await Options.findById(id).lean();
     if (!existing)
-      return res.status(404).send({ success: false, message: "Option not found" });
+      return res
+        .status(404)
+        .send({ success: false, message: "Option not found" });
 
-    if (existing.values && existing.values.length > 0) {
-      const inUse = await checkValuesInUse(
-        existing.collection,
-        existing.code,
-        existing.values
-      );
-      if (inUse) {
-        return res.status(400).send({
-          success: false,
-          message: "Cannot delete option because its values are currently in use",
-        });
-      }
+    const inUse = await checkValueInUse(
+      existing.targetCollection,
+      existing.type,
+      existing.value,
+    );
+    if (inUse) {
+      return res.status(400).send({
+        success: false,
+        message: "Cannot delete option because its value is currently in use",
+      });
     }
 
     await Options.findByIdAndDelete(id);

@@ -71,9 +71,10 @@ async function getAssignedOrders(req, res) {
 }
 
 async function getListData(input) {
-  const order = await (typeof input === "object"
-    ? WorkOrder.find({ ...input, deletion: null })
-    : WorkOrder.findOne({ code: input })
+  const order = await (
+    typeof input === "object"
+      ? WorkOrder.find({ ...input, deletion: null })
+      : WorkOrder.findOne({ code: input })
   )
     .populate({
       path: "device",
@@ -159,7 +160,7 @@ async function getMostRecent(req, res) {
 
 async function getOptions(req, res) {
   try {
-    const options = await WOoptions.findOne({});
+    const workOrderOptions = await WOoptions.findOne({});
     res.status(200).send({
       supervisor: (
         await User.find({ access: "Supervisor", active: true })
@@ -173,9 +174,9 @@ async function getOptions(req, res) {
         };
       }),
       // status: options.status,
-      class: options.classes,
-      issue: options.issueType,
-      cause: options.causes.map((e) => e.name),
+      class: workOrderOptions.classes,
+      issue: workOrderOptions.issueType,
+      cause: workOrderOptions.causes.map((e) => e.name),
     });
   } catch (e) {
     res.status(400).send({ error: e.message });
@@ -361,7 +362,7 @@ async function getWObyId(req, res) {
       const gas = gasUsage.filter(
         (usage) =>
           JSON.stringify(usage.intervention) ===
-          JSON.stringify(intervention._id)
+          JSON.stringify(intervention._id),
       );
       item.refrigerant = [];
       let total = 0;
@@ -419,7 +420,7 @@ async function newInterventions(interventions, order) {
         intervention.gasUsages = gasUsages;
         return intervention;
       }
-    })
+    }),
   );
 }
 
@@ -467,7 +468,7 @@ async function getWOList(req, res) {
 
     const array = workOrders
       .filter((wo) =>
-        plantName ? wo.device?.line?.area?.plant?.name === plantName : true
+        plantName ? wo.device?.line?.area?.plant?.name === plantName : true,
       )
       .map((order) => {
         return {
@@ -587,7 +588,7 @@ async function updateWorkOrder(req, res) {
       workOrders: stored._id,
     });
     const newTaskDate = await TaskDates.findById(
-      order.taskDate?.id || order.taskDate
+      order.taskDate?.id || order.taskDate,
     );
 
     if (!currentTaskDate?._id.equals(newTaskDate?._id)) {
@@ -601,7 +602,7 @@ async function updateWorkOrder(req, res) {
         }));
     }
     stored.interventions = existingInterventions.concat(
-      addedInterventions || []
+      addedInterventions || [],
     );
     stored.taskDate = await TaskDates.findOne({ workOrders: stored._id });
     res.status(200).send(buildOrder(stored, order.taskDate));
@@ -660,7 +661,7 @@ async function generateReport(req, res) {
             personal:
               int?.workers.map((worker) => worker.username)?.join("-") || "",
             tarea: int?.tasks || "",
-          })) || ""
+          })) || "",
         ),
         Estado: order.status,
         Causa_Problematica: order.description,
@@ -688,8 +689,8 @@ async function checkData(req, res) {
       await Promise.all(
         devices.map(
           async (d) =>
-            await getTaskDatesByDevice(d._id, new Date().getFullYear())
-        )
+            await getTaskDatesByDevice(d._id, new Date().getFullYear()),
+        ),
       )
     ).flat(1);
     const result = {
@@ -729,7 +730,7 @@ async function loadFromExcel(req, res) {
     const lastOrder = await WorkOrder.findOne(
       {},
       {},
-      { sort: { code: -1 } }
+      { sort: { code: -1 } },
     ).lean();
     const lastCode = lastOrder.code;
     const results = (
@@ -737,14 +738,14 @@ async function loadFromExcel(req, res) {
         data.map(async (element, i) => {
           const device = devices.find((d) => d.code === element["EQUIPO"]);
           const sp = servicePoints.find(
-            (d) => d.code === element["LUGAR_SERVICIO"]
+            (d) => d.code === element["LUGAR_SERVICIO"],
           );
 
           const supervisor = supervisors.find(
-            ({ idNumber }) => idNumber === element["SUPERVISOR_ID"]
+            ({ idNumber }) => idNumber === element["SUPERVISOR_ID"],
           );
           const responsible = responsibles.find(
-            ({ idNumber }) => idNumber === element["RESPONSABLE_ID"]
+            ({ idNumber }) => idNumber === element["RESPONSABLE_ID"],
           );
 
           const newItem = await WorkOrder({
@@ -779,22 +780,22 @@ async function loadFromExcel(req, res) {
               .split("T")[0];
             const taskDates = await getTaskDatesByDevice(
               device,
-              new Date().getFullYear()
+              new Date().getFullYear(),
             );
             const taskDate = taskDates.find(
-              ({ date }) => date.toISOString().split("T")[0] === elementDate
+              ({ date }) => date.toISOString().split("T")[0] === elementDate,
             );
             await TaskDates.findByIdAndUpdate(taskDate.id, {
               $push: { workOrders: newItem._id },
             });
           }
           return storedItem;
-        })
+        }),
       )
     ).flat(1);
     const orderList = (
       await Promise.all(
-        results.map(async ({ code }) => await getListData(code))
+        results.map(async ({ code }) => await getListData(code)),
       )
     ).map(buildOrder);
 

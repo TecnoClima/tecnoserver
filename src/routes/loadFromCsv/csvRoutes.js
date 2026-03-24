@@ -28,6 +28,8 @@ const Intervention = require("../../models/Intervention");
 const CylinderUse = require("../../models/CylinderUse");
 
 const workOrderController = require("../../controllersV2/workOrder");
+const Options = require("../../models/Options");
+const { addPlant } = require("../../controllers/plantController");
 
 const server = Router();
 
@@ -159,113 +161,522 @@ server.get("/", async (req, res) => {
 
 server.post("/", async (req, res) => {
   let results = [];
+
+  // let data = [
+  //   {
+  //     value: "critica",
+  //     label: "Crítica",
+  //     type: "priority",
+  //     targetCollection: "workOrder",
+  //     order: 1,
+  //     metadata: { weight: 4 },
+  //     active: true,
+  //   },
+  //   {
+  //     value: "alta",
+  //     label: "Alta",
+  //     type: "priority",
+  //     targetCollection: "workOrder",
+  //     order: 2,
+  //     metadata: { weight: 3 },
+  //     active: true,
+  //   },
+  //   {
+  //     value: "media",
+  //     label: "Media",
+  //     type: "priority",
+  //     targetCollection: "workOrder",
+  //     order: 3,
+  //     metadata: { weight: 2 },
+  //     active: true,
+  //   },
+  //   {
+  //     value: "baja",
+  //     label: "Baja",
+  //     type: "priority",
+  //     targetCollection: "workOrder",
+  //     order: 4,
+  //     metadata: { weight: 1 },
+  //     active: true,
+  //   },
+
+  //   {
+  //     value: "inspeccion",
+  //     label: "Inspección",
+  //     type: "classification",
+  //     targetCollection: "workOrder",
+  //     order: 1,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "mantenimiento",
+  //     label: "Mantenimiento",
+  //     type: "classification",
+  //     targetCollection: "workOrder",
+  //     order: 2,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "emergencia",
+  //     label: "Emergencia",
+  //     type: "classification",
+  //     targetCollection: "workOrder",
+  //     order: 3,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "montaje",
+  //     label: "Montaje",
+  //     type: "classification",
+  //     targetCollection: "workOrder",
+  //     order: 4,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "preventivo",
+  //     label: "Preventivo",
+  //     type: "classification",
+  //     targetCollection: "workOrder",
+  //     order: 5,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "reclamo",
+  //     label: "Reclamo",
+  //     type: "classification",
+  //     targetCollection: "workOrder",
+  //     order: 6,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "taller",
+  //     label: "Taller",
+  //     type: "classification",
+  //     targetCollection: "workOrder",
+  //     order: 7,
+  //     metadata: {},
+  //     active: true,
+  //   },
+
+  //   {
+  //     value: "unidad_interior",
+  //     label: "Unidad interior",
+  //     type: "devicePart",
+  //     targetCollection: "workOrder",
+  //     order: 1,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "unidad_exterior",
+  //     label: "Unidad exterior",
+  //     type: "devicePart",
+  //     targetCollection: "workOrder",
+  //     order: 2,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "equipo_completo",
+  //     label: "Equipo completo",
+  //     type: "devicePart",
+  //     targetCollection: "workOrder",
+  //     order: 3,
+  //     metadata: {},
+  //     active: true,
+  //   },
+
+  //   {
+  //     value: "alta_temperatura",
+  //     label: "Alta temperatura",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 1,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "baja_temperatura",
+  //     label: "Baja temperatura",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 2,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "no_enfria",
+  //     label: "No enfría",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 3,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "no_calefacciona",
+  //     label: "No calefacciona",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 4,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "no_funciona",
+  //     label: "No funciona",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 5,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "equipo_detenido",
+  //     label: "Equipo detenido",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 6,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "olor_extrano",
+  //     label: "Olor extraño",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 7,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "ruido",
+  //     label: "Ruido",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 8,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "perdida_agua",
+  //     label: "Pérdida de agua",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 9,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "perdida_refrigerante",
+  //     label: "Pérdida de refrigerante",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 10,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "salta_termica",
+  //     label: "Salta térmica",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 11,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "solo_ventilacion",
+  //     label: "Solo ventilación",
+  //     type: "cause",
+  //     targetCollection: "workOrder",
+  //     order: 12,
+  //     metadata: {},
+  //     active: true,
+  //   },
+
+  //   {
+  //     value: "electrico",
+  //     label: "Eléctrico",
+  //     type: "failureType",
+  //     targetCollection: "workOrder",
+  //     order: 1,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "mecanico",
+  //     label: "Mecánico",
+  //     type: "failureType",
+  //     targetCollection: "workOrder",
+  //     order: 2,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "termico",
+  //     label: "Térmico",
+  //     type: "failureType",
+  //     targetCollection: "workOrder",
+  //     order: 3,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "configuracion",
+  //     label: "Configuración",
+  //     type: "failureType",
+  //     targetCollection: "workOrder",
+  //     order: 4,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "sin_falla",
+  //     label: "Sin falla",
+  //     type: "failureType",
+  //     targetCollection: "workOrder",
+  //     order: 5,
+  //     metadata: {},
+  //     active: true,
+  //   },
+
+  //   {
+  //     value: "recorrida",
+  //     label: "Recorrida",
+  //     type: "activator",
+  //     targetCollection: "workOrder",
+  //     order: 1,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "planificado",
+  //     label: "Planificado",
+  //     type: "activator",
+  //     targetCollection: "workOrder",
+  //     order: 2,
+  //     metadata: {},
+  //     active: true,
+  //   },
+
+  //   {
+  //     value: "inspeccion",
+  //     label: "Inspección",
+  //     type: "detection",
+  //     targetCollection: "workOrder",
+  //     order: 1,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "reclamo",
+  //     label: "Reclamo",
+  //     type: "detection",
+  //     targetCollection: "workOrder",
+  //     order: 2,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "alarma",
+  //     label: "Alarma",
+  //     type: "detection",
+  //     targetCollection: "workOrder",
+  //     order: 3,
+  //     metadata: {},
+  //     active: true,
+  //   },
+
+  //   {
+  //     value: "critica",
+  //     label: "Crítica",
+  //     type: "severity",
+  //     targetCollection: "workOrder",
+  //     order: 1,
+  //     metadata: { weight: 4 },
+  //     active: true,
+  //   },
+  //   {
+  //     value: "alta",
+  //     label: "Alta",
+  //     type: "severity",
+  //     targetCollection: "workOrder",
+  //     order: 2,
+  //     metadata: { weight: 3 },
+  //     active: true,
+  //   },
+  //   {
+  //     value: "media",
+  //     label: "Media",
+  //     type: "severity",
+  //     targetCollection: "workOrder",
+  //     order: 3,
+  //     metadata: { weight: 2 },
+  //     active: true,
+  //   },
+  //   {
+  //     value: "baja",
+  //     label: "Baja",
+  //     type: "severity",
+  //     targetCollection: "workOrder",
+  //     order: 4,
+  //     metadata: { weight: 1 },
+  //     active: true,
+  //   },
+
+  //   {
+  //     value: "falta_refrigerante",
+  //     label: "Falta de refrigerante",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 1,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "condensador_sucio",
+  //     label: "Condensador sucio",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 2,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "evaporador_sucio",
+  //     label: "Evaporador sucio",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 3,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "filtros_sucios",
+  //     label: "Filtros sucios",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 4,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "equipo_congelado",
+  //     label: "Equipo congelado",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 5,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "equipo_sucio",
+  //     label: "Equipo sucio",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 6,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "equipo_deshabilitado",
+  //     label: "Equipo deshabilitado",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 7,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "equipo_desmontado",
+  //     label: "Equipo desmontado",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 8,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "problema_electrico",
+  //     label: "Problema eléctrico",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 9,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "problema_mecanico",
+  //     label: "Problema mecánico",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 10,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "problema_termico",
+  //     label: "Problema térmico",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 11,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "configuracion_incorrecta",
+  //     label: "Configuración incorrecta",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 12,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "perdida_agua",
+  //     label: "Pérdida de agua",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 13,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "sin_danio",
+  //     label: "Sin daño",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 14,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  //   {
+  //     value: "otro",
+  //     label: "Otro",
+  //     type: "damageType",
+  //     targetCollection: "workOrder",
+  //     order: 15,
+  //     metadata: {},
+  //     active: true,
+  //   },
+  // ];
+  // await Promise.all(
+  //   data.map(async (d) => {
+  //     const option = await Options(d);
+  //     return await option.save();
+  //   }),
+  // );
+  // const options = await Options.find().lean();
+
   try {
-    // función que intenta identificar ordenes problemáticas
-    // const responsible = await User.findOne({ username: "JDURAN" }).lean();
-    // console.log(responsible);
-    // const orders = await WorkOrder.find({
-    //   responsible: responsible._id,
-    //   $and: [
-    //     { "registration.date": { $gte: new Date("2025-04-07T00:00:00.000Z") } },
-    //   ],
-    // })
-    //   .populate([
-    //     {
-    //       path: "device",
-    //       populate: {
-    //         path: "line",
-    //         populate: { path: "area", populate: "plant" },
-    //       },
-    //     },
-    //     { path: "responsible" },
-    //   ])
-    //   .lean();
-    // const interventions = await Intervention.find({
-    //   workOrder: { $in: orders.map(({ _id }) => _id) },
-    //   isDeleted: { $ne: true },
-    // }).lean();
-    // const datePairs = orders.map((order) => {
-    //   const { _id, code, description, registration, device } = order;
-    //   const dateStr = registration?.date;
-    //   if (dateStr) {
-    //     const dateOnly = new Date(dateStr).toISOString().split("T")[0];
-    //     const orderInterventions = interventions
-    //       .filter(({ workOrder }) => workOrder.equals(_id))
-    //       .map(({ _id }) => _id)
-    //       .join(",");
-    //     return [
-    //       code,
-    //       order.class,
-    //       device.code,
-    //       device.name,
-    //       description,
-    //       dateOnly,
-    //       device?.line?.area?.plant?.name,
-    //       orderInterventions || "Sin Intervención",
-    //       order.responsible?.name || "Sin Responsable",
-    //     ];
-    //   }
-    // });
-    // results = datePairs;
-
-    // función para anular OTs
-
-    // await Intervention.updateMany({ isDeleted: true }, { isDeleted: false });
-    const deletedOrders = await WorkOrder.find({
-      deletion: { $ne: null },
-    }).lean();
-    const deletedOrderInterventions = await Intervention.find({
-      workOrder: { $in: deletedOrders.map((e) => e._id) },
-      // isDeleted: false,
-    });
-    // const deletedOrderInterventions = await Intervention.updateMany(
-    //   {
-    //     workOrder: { $nin: deletedOrders.map((e) => e._id) },
-    //   },
-    //   { isDeleted: false }
-    // );
-    console.log("deletedOrderInterventions", deletedOrderInterventions.length);
-    // console.log(deletedOrders.length);
-    // const orderInterventions = await Intervention.find({
-    //   workOrder: { $in: deletedOrders.map((e) => e._id) },
-    // }).lean();
-    // console.log("orderInterventions", orderInterventions.length);
-    // await Intervention.updateMany(
-    //   { _id: { $in: orderInterventions.map((e) => e._id) } },
-    //   { isDeleted: true }
-    // );
-
-    // const deletedInterventions = await Intervention.find({
-    //   isDeleted: true,
-    // }).lean();
-    // console.log("deletedInterventions", deletedInterventions.length);
-
-    // results.push(await loadAreasFromCsv());
-    // results.push(await loadLinesFromCsv());
-    // results.push(await createDeviceOptions());
-    // results.push(await createWOoptions());
-    // results.push(await createUserOptions());
-
-    // results.push(await loadServicePointsFromCsv());
-    // results.push(await loadGasesFromCsv());
-
-    // await ServicePoint.updateMany({}, { devices: [] });
-
-    // results.push(await loadDevicesFromCsv());
-    // results.push(await loadRelationEqLsFromCsv());
-    // results.push(await createUsers());
-
-    // add mayuda user. check hour and descriptions not startin with "="
-
-    // results.push(await loadOTfromCsv());
-    // results.push(await loadInterventionFromCsv());
-
-    // consumos de gases
-
-    // results.push(await updateData());
-
-    //consumos de gases
-    res.status(200).send(results);
+    res.status(200).send(options);
   } catch (e) {
     console.log(e);
     res.status(500).send(e.message);

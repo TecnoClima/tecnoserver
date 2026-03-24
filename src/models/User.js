@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const UserOptions = require("./UserOptions");
 
-const options = UserOptions.findOne();
+const userOption = UserOptions.findOne();
 
 const userSchema = new Schema(
   {
@@ -10,8 +10,8 @@ const userSchema = new Schema(
     password: { type: String },
     name: { type: String, required: true },
     idNumber: { type: Number, required: true, unique: true },
-    access: { type: String, enum: options.access },
-    charge: { type: String, enum: options.charge },
+    access: { type: String, enum: userOption.access },
+    charge: { type: String, enum: userOption.charge },
     email: { type: String },
     phone: { type: String },
     plant: { type: Schema.Types.ObjectId, ref: "Plant" },
@@ -19,7 +19,7 @@ const userSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("Users", userSchema);

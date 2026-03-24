@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const WOoptions = require("./WOoptions");
 
-const options = WOoptions.findOne({ name: "Work Orders Options" })
+const workOrderOption = WOoptions.findOne({ name: "Work Orders Options" })
   .lean()
   .exec();
 
@@ -46,37 +46,37 @@ const TechSubtaskSchema = Schema(
       type: String,
     },
   },
-  { _id: true }
+  { _id: true },
 );
 
 const TechDiagnosticsSchema = Schema(
   {
     failureType: { type: String },
-    cause:       { type: String },
-    method:      { type: String },
-    severity:    { type: String },
-    downtime:    { type: Number },
-    damageType:  { type: String },
+    cause: { type: String },
+    method: { type: String },
+    severity: { type: String },
+    downtime: { type: Number },
+    damageType: { type: String },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const TechPlannedSchema = Schema(
   {
-    priority:      { type: String },
+    priority: { type: String },
     classification: { type: String },
-    originDate:    { type: Date },
+    originDate: { type: Date },
     scheduledDate: { type: Date },
-    approvalDate:  { type: Date },
-    startDate:     { type: Date },
-    endDate:       { type: Date },
-    downtime:      { type: Number },
+    approvalDate: { type: Date },
+    startDate: { type: Date },
+    endDate: { type: Date },
+    downtime: { type: Number },
     requester: {
       type: Schema.Types.ObjectId,
       ref: "Users",
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const TechSchema = Schema(
@@ -88,11 +88,11 @@ const TechSchema = Schema(
     estimatedDuration: {
       type: Number,
     },
-    planned:     TechPlannedSchema,
-    subtasks:    [TechSubtaskSchema],
+    planned: TechPlannedSchema,
+    subtasks: [TechSubtaskSchema],
     diagnostics: TechDiagnosticsSchema,
   },
-  { _id: false }
+  { _id: false },
 );
 
 const WorkOrderSchema = Schema(
@@ -114,11 +114,11 @@ const WorkOrderSchema = Schema(
     },
     status: {
       type: String,
-      enum: options.status,
+      enum: workOrderOption.status,
     },
     class: {
       type: String,
-      enum: options.class,
+      enum: workOrderOption.class,
       autoPopulate: true,
     },
     initIssue: {
@@ -149,7 +149,7 @@ const WorkOrderSchema = Schema(
     },
     cause: {
       type: String,
-      enum: options.causes,
+      enum: workOrderOption.causes,
     },
     // macroCause: Dato de causes
 
@@ -206,7 +206,7 @@ const WorkOrderSchema = Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("WorkOrders", WorkOrderSchema);

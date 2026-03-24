@@ -93,7 +93,7 @@ async function login(req, res) {
     }).populate("plant");
     if (!user)
       throw new Error(
-        "Usuario o Contraseña incorrecta, intente de nuevo por favor"
+        "Usuario o Contraseña incorrecta, intente de nuevo por favor",
       );
     const tokenInput = {
       user: username,
@@ -104,7 +104,7 @@ async function login(req, res) {
     const checkPassword = await bcrypt.compare(password, user.password);
     if (!checkPassword)
       throw new Error(
-        "Usuario o Contraseña incorrecta, intente de nuevo por favor"
+        "Usuario o Contraseña incorrecta, intente de nuevo por favor",
       );
     const accessToken = generateAccessToken(tokenInput);
     res.status(200).send({
@@ -264,8 +264,8 @@ async function getUsersList(req, res) {
 }
 async function getUserOptions(req, res) {
   try {
-    const options = await UserOptions.findOne();
-    res.status(200).send(options);
+    const userOptions = await UserOptions.findOne();
+    res.status(200).send(userOptions);
   } catch (e) {
     res.status(400).send({ error: e.message });
   }

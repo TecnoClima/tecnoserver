@@ -134,10 +134,10 @@ async function getDeviceHistory(req, res) {
     const device = await Device.findOne({ code }).lean();
     const orders = await WorkOrder.find({ device: device._id, deletion: null });
     const interventions = await intController.getByOrder(
-      orders.map((order) => order._id)
+      orders.map((order) => order._id),
     );
     const gasUsages = await cylController.getInterventionUsages(
-      interventions.map((int) => int._id)
+      interventions.map((int) => int._id),
     );
     res.status(200).send({
       orders: orders.map((order) => ({
@@ -156,7 +156,7 @@ async function getDeviceHistory(req, res) {
           .filter(
             (usage) =>
               JSON.stringify(usage.intervention) ===
-              JSON.stringify(intervention._id)
+              JSON.stringify(intervention._id),
           )
           .map((usage) => ({
             cylinder: usage.cylinder.code,
@@ -246,7 +246,7 @@ async function devicePage(req, res) {
       return new Date(
         currentDate.getFullYear() - age,
         currentDate.getMonth(),
-        currentDate.getDate()
+        currentDate.getDate(),
       );
     }
 
@@ -263,7 +263,7 @@ async function devicePage(req, res) {
       const max = parseInt(recMax);
       if (!min && !max) return {};
       const devices = await Device.find(
-        await locationQuery({ plant, area, line })
+        await locationQuery({ plant, area, line }),
       );
       const workOrder = await WorkOrder.find({
         class: "Reclamo",
@@ -304,14 +304,14 @@ async function devicePage(req, res) {
     const pageSize = params.page?.size || 30;
     const page = params.page?.page || 1;
     const devices = await Device.find(
-      filters[0] ? { $and: filters } : {}
+      filters[0] ? { $and: filters } : {},
     ).populate("refrigerant");
     const pages = Math.ceil(devices.length / pageSize);
 
     res.status(200).send({
       devices: devices.slice(
         (page - 1) * pageSize,
-        (page - 1) * pageSize + pageSize
+        (page - 1) * pageSize + pageSize,
       ),
       pages,
       quantity: devices.length,
@@ -324,9 +324,9 @@ async function devicePage(req, res) {
 
 async function fullDeviceOptions(req, res) {
   try {
-    const options = await DeviceOptions.findOne({});
+    const deviceOptions = await DeviceOptions.findOne({});
     const gases = await Refrigerant.find({});
-    const { types, service, status, category, environment } = options;
+    const { types, service, status, category, environment } = deviceOptions;
     //revisar:
     const plant = await Plant.find({}).select(["code", "name", "id"]);
     const area = await Area.find({}).select(["code", "name", "plant", "id"]);
@@ -427,7 +427,7 @@ async function updateDevice(req, res) {
           ? {
               _id: {
                 $in: device.servicePoints?.map((id) =>
-                  mongoose.Types.ObjectId(id)
+                  mongoose.Types.ObjectId(id),
                 ),
               },
             }
@@ -435,7 +435,7 @@ async function updateDevice(req, res) {
               name: {
                 $in: device.servicePoints,
               },
-            }
+            },
       )) || baseData.servicePoints;
     device.name = device.name.toUpperCase() || baseData.name;
     device.refrigerant =
@@ -447,7 +447,7 @@ async function updateDevice(req, res) {
     if (device.followDate) device.followDate = new Date(device.followDate);
     await Device.findOneAndUpdate(
       { code: device.code, line: device.line._id },
-      device
+      device,
     );
     const updated = await findFullDeviceData({ code: device.code });
     res.status(200).send({ success: buildDevice(updated) });
@@ -531,7 +531,7 @@ async function getDevices(req, res) {
     if (Object.keys(filters).length > 0) {
       deviceList = await searchDevices(
         filters,
-        pageSize && current ? pages : ""
+        pageSize && current ? pages : "",
       );
       res.status(200).send({ quantity: deviceList.length, list: deviceList });
     } else {
@@ -548,17 +548,17 @@ async function devicesByPage(req, res) {
   try {
     const devices = await buildDevices(
       {},
-      { size: size || 50, current: page || 1 }
+      { size: size || 50, current: page || 1 },
     );
     let success = {};
     if (page > 1)
       success.prev = `${process.env.APP_URL}/v1/devices?size=${
         size || 50
       }&page=${page - 1}`;
-    (success.next = `${process.env.APP_URL}/v1/devices?size=${
+    ((success.next = `${process.env.APP_URL}/v1/devices?size=${
       size || 50
     }&page=${page + 1 || 2}`),
-      (success.items = devices.length);
+      (success.items = devices.length));
     success.results = devices;
     res.status(200).send(success);
   } catch (e) {
@@ -584,12 +584,14 @@ async function getDeviceFilters(req, res) {
         });
       }
     }
-    const options = await DeviceOptions.findOne({ name: "DeviceFeatures" });
+    const deviceOptions = await DeviceOptions.findOne({
+      name: "DeviceFeatures",
+    });
     let filters = {
       area: areas.map((area) => area.name),
       line: lineFilter,
-      type: options.types,
-      category: options.category,
+      type: deviceOptions.types,
+      category: deviceOptions.category,
     };
     res.status(200).send(filters);
   } catch (e) {
@@ -605,7 +607,7 @@ async function devicesByLine(req, res) {
     res.status(200).send(
       devices.map((device) => {
         return { code: device.code, name: device.name };
-      })
+      }),
     );
   } catch (e) {
     res.status(400).send({ error: e.message });
@@ -621,7 +623,7 @@ async function devicesByName(req, res) {
     res.status(200).send(
       devices.map((device) => {
         return { code: device.code, name: device.name };
-      })
+      }),
     );
   } catch (e) {
     res.status(400).send({ error: e.message });
@@ -721,7 +723,7 @@ async function getDevicesReport(req, res) {
         if (a["CÓDIGO-LS"] > b["CÓDIGO-LS"]) return 1;
 
         return 0; // Son iguales en todos los criterios
-      })
+      }),
     );
   } catch (e) {
     console.log(e);
@@ -744,7 +746,7 @@ async function getReclamoInterventionAverage(req, res) {
 
     if (fromDate > toDate) {
       throw new Error(
-        "La fecha inicial no puede ser posterior a la fecha final"
+        "La fecha inicial no puede ser posterior a la fecha final",
       );
     }
 
@@ -911,18 +913,18 @@ async function getKPIs(req, res) {
 
     const data = devices.map((d) => {
       const deviceInterventions = interventions.filter(
-        (i) => i.workOrder.device.code === d.code
+        (i) => i.workOrder.device.code === d.code,
       );
       const totalReclaims = deviceInterventions.filter(
-        (i) => i.workOrder.class === "Reclamo"
+        (i) => i.workOrder.class === "Reclamo",
       );
       const reclaims = deviceInterventions.filter(
-        (i) => i.workOrder.class === "Reclamo" && !!i.endDate
+        (i) => i.workOrder.class === "Reclamo" && !!i.endDate,
       );
       const totalInterventionsHours =
         deviceInterventions.reduce(
           (acc, curr) => acc + (curr.endDate - curr.date),
-          0
+          0,
         ) /
         1000 /
         60 /
@@ -936,7 +938,7 @@ async function getKPIs(req, res) {
         name: d.name,
         totalReclaims: totalReclaims.length,
         lastOrder: deviceInterventions.filter(
-          (i) => i.workOrder?.class !== "Reclamo"
+          (i) => i.workOrder?.class !== "Reclamo",
         )[0]?.workOrder.code,
         pendingClose: deviceInterventions
           .filter((r) => !r.endDate)
