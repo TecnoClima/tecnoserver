@@ -162,6 +162,18 @@ server.get("/", async (req, res) => {
 server.post("/", async (req, res) => {
   let results = [];
 
+  let data = [
+    {
+      value: "critica",
+      label: "Crítica",
+      type: "priority",
+      targetCollection: "workOrder",
+      order: 1,
+      metadata: { weight: 4 },
+      active: true,
+    },
+  ];
+
   // let data = [
   //   {
   //     value: "critica",
@@ -268,7 +280,7 @@ server.post("/", async (req, res) => {
   //     value: "unidad_interior",
   //     label: "Unidad interior",
   //     type: "devicePart",
-  //     targetCollection: "workOrder",
+  //     targetCollection: "subTask",
   //     order: 1,
   //     metadata: {},
   //     active: true,
@@ -277,7 +289,7 @@ server.post("/", async (req, res) => {
   //     value: "unidad_exterior",
   //     label: "Unidad exterior",
   //     type: "devicePart",
-  //     targetCollection: "workOrder",
+  //     targetCollection: "subTask",
   //     order: 2,
   //     metadata: {},
   //     active: true,
@@ -286,7 +298,7 @@ server.post("/", async (req, res) => {
   //     value: "equipo_completo",
   //     label: "Equipo completo",
   //     type: "devicePart",
-  //     targetCollection: "workOrder",
+  //     targetCollection: "subTask",
   //     order: 3,
   //     metadata: {},
   //     active: true,
@@ -667,12 +679,14 @@ server.post("/", async (req, res) => {
   //     active: true,
   //   },
   // ];
-  // await Promise.all(
-  //   data.map(async (d) => {
-  //     const option = await Options(d);
-  //     return await option.save();
-  //   }),
-  // );
+
+  await Promise.all(
+    data.map(async (d) => {
+      const option = await Options(d);
+      return await option.save();
+    }),
+  );
+
   // const options = await Options.find().lean();
 
   try {
