@@ -3,7 +3,7 @@ const Plant = require("../../models/Plant");
 const Area = require("../../models/Area");
 const Line = require("../../models/Line");
 const Refrigerante = require("../../models/Refrigerant");
-const Options = require("../../models/DeviceOptions");
+const DeviceOptions = require("../../models/DeviceOptions");
 const Device = require("../../models/Device");
 const ServicePoint = require("../../models/ServicePoint");
 const {
@@ -368,7 +368,7 @@ async function loadGasesFromCsv() {
 
 async function createDeviceOptions() {
   try {
-    const Opciones = await Options({
+    const Opciones = await DeviceOptions({
       name: "DeviceFeatures",
       types: deviceOptions.tipo,
       units: deviceOptions.units,
@@ -390,9 +390,6 @@ async function loadDevicesFromCsv() {
   const results = { ok: [], errors: [] };
   const fileName = "Equipos.csv";
   try {
-    const options = await Options.findOne({ name: "DeviceFeatures" })
-      .lean()
-      .exec();
     const correctCodes = function (code) {
       const ref = {
         "LAQ-LS005": "LAQ-032",
@@ -450,9 +447,7 @@ async function loadDevicesFromCsv() {
           refrigerant:
             elem.gas === ""
               ? null
-              : (
-                  await Refrigerante.findOne({ code: elem.gas })
-                )._id,
+              : (await Refrigerante.findOne({ code: elem.gas }))._id,
           status:
             elem.estado == "" ? "" : deviceOptions.convert.estado(elem.estado),
           extraDetails: elem.infoExtra,

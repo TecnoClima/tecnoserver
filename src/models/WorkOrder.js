@@ -2,9 +2,98 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const WOoptions = require("./WOoptions");
 
-const options = WOoptions.findOne({ name: "Work Orders Options" })
+const workOrderOption = WOoptions.findOne({ name: "Work Orders Options" })
   .lean()
   .exec();
+
+// ---------------------------------------------------------------------------
+// Tech subdocument schemas
+// ---------------------------------------------------------------------------
+
+const TechSubtaskSchema = Schema(
+  {
+    templateId: {
+      type: Schema.Types.ObjectId,
+      ref: "TaskTemplate",
+    },
+    groupPart: {
+      type: Schema.Types.ObjectId,
+      ref: "GroupPart",
+    },
+    task: {
+      type: Schema.Types.ObjectId,
+      ref: "TechTask",
+    },
+    selectedOption: {
+      type: Schema.Types.ObjectId,
+      ref: "TaskOption",
+    },
+    customValue: {
+      type: String,
+    },
+    result: {
+      type: String,
+      enum: ["ok", "fail", "na"],
+    },
+    availableOptions: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "TaskOption",
+      },
+    ],
+    allowCustomValue: Boolean,
+    comments: {
+      type: String,
+    },
+  },
+  { _id: true },
+);
+
+const TechDiagnosticsSchema = Schema(
+  {
+    failureType: { type: String },
+    cause: { type: String },
+    method: { type: String },
+    severity: { type: String },
+    downtime: { type: Number },
+    damageType: { type: String },
+  },
+  { _id: false },
+);
+
+const TechPlannedSchema = Schema(
+  {
+    priority: { type: String },
+    classification: { type: String },
+    originDate: { type: Date },
+    scheduledDate: { type: Date },
+    approvalDate: { type: Date },
+    startDate: { type: Date },
+    endDate: { type: Date },
+    downtime: { type: Number },
+    requester: {
+      type: Schema.Types.ObjectId,
+      ref: "Users",
+    },
+  },
+  { _id: false },
+);
+
+const TechSchema = Schema(
+  {
+    generatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "Users",
+    },
+    estimatedDuration: {
+      type: Number,
+    },
+    planned: TechPlannedSchema,
+    subtasks: [TechSubtaskSchema],
+    diagnostics: TechDiagnosticsSchema,
+  },
+  { _id: false },
+);
 
 const WorkOrderSchema = Schema(
   {
@@ -25,11 +114,11 @@ const WorkOrderSchema = Schema(
     },
     status: {
       type: String,
-      enum: options.status,
+      enum: workOrderOption.status,
     },
     class: {
       type: String,
-      enum: options.class,
+      enum: workOrderOption.class,
       autoPopulate: true,
     },
     initIssue: {
@@ -60,7 +149,7 @@ const WorkOrderSchema = Schema(
     },
     cause: {
       type: String,
-      enum: options.causes,
+      enum: workOrderOption.causes,
     },
     // macroCause: Dato de causes
 
@@ -97,10 +186,27 @@ const WorkOrderSchema = Schema(
         ref: "Users",
       },
     },
+
+    // -----------------------------------------------------------------------
+    // Tech order extensions (backward-compatible additions)
+    // -----------------------------------------------------------------------
+
+    /** Distinguishes regular work orders from tech orders. */
+    type: {
+      type: String,
+      enum: ["normal", "tech"],
+      default: "normal",
+    },
+
+    /** Present only when type === "tech". */
+    tech: {
+      type: TechSchema,
+      default: undefined,
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("WorkOrders", WorkOrderSchema);

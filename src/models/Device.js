@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
-const Opciones = require("./DeviceOptions");
+const DeviceOptions = require("./DeviceOptions");
 
-const options = Opciones.findOne({ name: "DeviceFeatures" }).lean().exec();
+const deviceOptions = DeviceOptions.findOne({ name: "DeviceFeatures" })
+  .lean()
+  .exec();
 
 const DeviceSchema = Schema(
   {
@@ -18,7 +20,7 @@ const DeviceSchema = Schema(
     },
     type: {
       type: String,
-      enum: options.types,
+      enum: deviceOptions.types,
       autoPopulate: true,
     },
     powerKcal: {
@@ -37,17 +39,17 @@ const DeviceSchema = Schema(
     },
     service: {
       type: String,
-      enum: options.service,
+      enum: deviceOptions.service,
       autoPopulate: true,
     },
     status: {
       type: String,
-      enum: options.status,
+      enum: deviceOptions.status,
       autoPopulate: true,
     },
     category: {
       type: String,
-      enum: options.category,
+      enum: deviceOptions.category,
       autoPopulate: true,
     },
     regDate: {
@@ -55,7 +57,7 @@ const DeviceSchema = Schema(
     },
     environment: {
       type: String,
-      enum: options.environment,
+      enum: deviceOptions.environment,
       autoPopulate: true,
     },
     line: {
@@ -90,6 +92,6 @@ const DeviceSchema = Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 module.exports = mongoose.model("Device", DeviceSchema);
