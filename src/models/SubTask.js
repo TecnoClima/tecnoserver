@@ -3,7 +3,7 @@ const Schema = mongoose.Schema;
 
 const RESULT_TYPE_CONFIG = {
   boolean: ["Sí", "No", "N/A"],
-  approved: ["Aprobó", "Alerta", "Falló"],
+  verification: ["Aprobó", "Alerta", "Falló"],
   number: null,
   text: null,
   gps: null,
@@ -14,9 +14,11 @@ const SubTaskSchema = Schema(
     devicePart: {
       type: Schema.Types.ObjectId,
       ref: "Options",
+      required: true,
     },
     procedure: {
       type: String,
+      required: true,
     },
     resultType: {
       type: String,
@@ -31,6 +33,7 @@ const SubTaskSchema = Schema(
     },
     active: {
       type: Boolean,
+      default: true,
     },
   },
   {
