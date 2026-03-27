@@ -167,66 +167,66 @@ server.post("/", async (req, res) => {
   let errors = [];
 
   try {
-    const deviceParts = await Options.find({ type: "devicePart" }).lean();
-    await Promise.all(
-      subtaskToBuild.map(async (subtaskToBuild) => {
-        const { procedure, resultType, devicePart: dpart } = subtaskToBuild;
-        const devicePart = deviceParts.find(
-          ({ label }) => label === dpart,
-        )?._id;
-        try {
-          const subtask = await SubTask({
-            procedure,
-            resultType,
-            devicePart,
-          });
-          const saved = await subtask.save();
-          results.push(saved);
-        } catch (e) {
-          errors.push({ ...subtaskToBuild, error: e.message });
-        }
-      }),
-    );
+    // const deviceParts = await Options.find({ type: "devicePart" }).lean();
+    // await Promise.all(
+    //   subtaskToBuild.map(async (subtaskToBuild) => {
+    //     const { procedure, resultType, devicePart: dpart } = subtaskToBuild;
+    //     const devicePart = deviceParts.find(
+    //       ({ label }) => label === dpart,
+    //     )?._id;
+    //     try {
+    //       const subtask = await SubTask({
+    //         procedure,
+    //         resultType,
+    //         devicePart,
+    //       });
+    //       const saved = await subtask.save();
+    //       results.push(saved);
+    //     } catch (e) {
+    //       errors.push({ ...subtaskToBuild, error: e.message });
+    //     }
+    //   }),
+    // );
 
-    //**************************************************************** */
+    // //**************************************************************** */
 
-    for (const item of tasksTemplates) {
-      try {
-        let subtasksResolved = [];
-        const { name, data } = item;
-        for (const item of data) {
-          const { procedure, resultType } = item;
+    // for (const item of tasksTemplates) {
+    //   try {
+    //     let subtasksResolved = [];
+    //     const { name, data } = item;
+    //     for (const item of data) {
+    //       const { procedure, resultType } = item;
 
-          const devicePart = deviceParts.find(
-            ({ label }) => label === item.devicePart,
-          )?._id;
+    //       const devicePart = deviceParts.find(
+    //         ({ label }) => label === item.devicePart,
+    //       )?._id;
 
-          const subtask = await SubTask.findOne({
-            procedure,
-            devicePart,
-            resultType,
-          });
+    //       const subtask = await SubTask.findOne({
+    //         procedure,
+    //         devicePart,
+    //         resultType,
+    //       });
 
-          if (!subtask) {
-            throw new Error(
-              `SubTask no encontrada → procedure: ${procedure}, devicePart: ${item.devicePart}, resultType: ${resultType}`,
-            );
-          }
+    //       if (!subtask) {
+    //         throw new Error(
+    //           `SubTask no encontrada → procedure: ${procedure}, devicePart: ${item.devicePart}, resultType: ${resultType}`,
+    //         );
+    //       }
 
-          subtasksResolved.push(subtask._id);
-        }
-        // console.log("subtasksResolved", subtasksResolved);
-        const techTaskTemplate = await TechTaskTemplate({
-          name,
-          subtasks: subtasksResolved,
-        });
-        const save = await techTaskTemplate.save();
+    //       subtasksResolved.push(subtask._id);
+    //     }
+    //     // console.log("subtasksResolved", subtasksResolved);
+    //     const techTaskTemplate = await TechTaskTemplate({
+    //       name,
+    //       subtasks: subtasksResolved,
+    //     });
+    //     const save = await techTaskTemplate.save();
 
-        results.push(save);
-      } catch (e) {
-        errors.push({ name: item.name, error: e.message });
-      }
-    }
+    //     results.push(save);
+    //   } catch (e) {
+    //     errors.push({ name: item.name, error: e.message });
+    //   }
+    // }
 
     res
       .status(200)
