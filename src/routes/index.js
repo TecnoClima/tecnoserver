@@ -17,6 +17,7 @@ const excelRoutes = require("./excel");
 const techOrderRoutes = require("./techOrder.routes");
 const optionsRoutes = require("./options");
 const subTaskRoutes = require("./subTasks");
+const techTaskTemplateRoutes = require("./techTaskTemplates");
 
 const server = Router();
 
@@ -37,5 +38,6 @@ server.use("/excel", excelRoutes);
 server.use("/techorders", techOrderRoutes);
 server.use("/options", optionsRoutes);
 server.use("/subtasks", subTaskRoutes);
+server.use("/techtasktemplates", techTaskTemplateRoutes);
 
 module.exports = server;
