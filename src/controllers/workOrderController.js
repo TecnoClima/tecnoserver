@@ -18,6 +18,7 @@ const workOrderController = require("../controllersV2/workOrder");
 const Plant = require("../models/Plant");
 const { parseToUTC, formatToArgentinaTime } = require("../utils/utils");
 const { newIntervention } = require("./IntervController");
+const techOrderController = require("./techOrderController");
 
 function buildOrder(order, taskDate) {
   return {
@@ -185,6 +186,10 @@ async function getOptions(req, res) {
 
 async function addOrder(req, res) {
   try {
+    if (req.body.type === "tech") {
+      return techOrderController.createTechOrder(req, res);
+    }
+
     const workOrder = req.body;
     const sp = await ServicePoint.findOne({ name: workOrder.servicePoint });
     const lastOrder = await WorkOrder.findOne({}, {}, { sort: { code: -1 } });
@@ -270,6 +275,10 @@ async function getWObyId(req, res) {
       .populate({ path: "responsible", select: "idNumber" })
       .populate({ path: "interventions", populate: ["workers"] })
       .populate("servicePoint");
+
+    if (workOrder && workOrder.type === "tech") {
+      return techOrderController.getTechOrderById(req, res);
+    }
 
     const interventions = await Intervention.find({
       workOrder: workOrder._id,
@@ -388,7 +397,6 @@ async function getWObyId(req, res) {
 }
 
 async function newInterventions(interventions, order) {
-  console.log("interventions", interventions);
   return await Promise.all(
     interventions.map(async (i) => {
       const newItem = await Intervention({
@@ -502,25 +510,15 @@ async function deleteWorkOrder(req, res) {
   try {
     const { code } = req.params;
     const user = await User.findOne({ idNumber: req.tokenData.id });
+    const order = await WorkOrder.findOne({ code });
+    if (order?.type === "tech") {
+      return techOrderController.deleteTechOrder(req, res);
+    }
     await workOrderController.setDeleted({
       identifier: { code },
       userId: user._id,
       value: true,
     });
-
-    // const order = await WorkOrder.findOne({ code: code });
-    // const interventions = await Intervention.find({ _id: order.interventions });
-    // const gasUsages = await CylinderUse.find({
-    //   interventions_id: interventions,
-    //   isDeleted: { $ne: true },
-    // });
-
-    // await CylinderUse.deleteMany({ _id: gasUsages.map((item) => item._id) });
-    // interventions &&
-    //   (await Intervention.deleteMany({
-    //     _id: interventions.map((item) => item._id),
-    //   }));
-    // await WorkOrder.deleteOne({ _id: order._id });
 
     res.status(200).send({ result: "success", code });
   } catch (e) {
@@ -534,6 +532,10 @@ async function updateWorkOrder(req, res) {
     const order = req.body;
     const existingInterventions = order.interventions.filter((i) => !!i.id);
     const intervetionsToCreate = order.interventions.filter((i) => !i.id);
+    const existingOrder = await WorkOrder.findOne({ code });
+    if (existingOrder.type === "tech") {
+      return techOrderController.updateTechOrder(req, res);
+    }
     order.solicitor = { name: order.solicitor };
     if (order.phone) order.solicitor.phone = order.phone;
     if (order.device)

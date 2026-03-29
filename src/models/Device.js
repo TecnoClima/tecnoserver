@@ -86,6 +86,10 @@ const DeviceSchema = Schema(
     frequency: {
       type: Number,
     },
+    // TODO: habilitar alta y modificación de centro de costo
+    // costCenter: {
+    //   type: String,
+    // },
     active: {
       type: Boolean,
     },

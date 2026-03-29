@@ -5,7 +5,7 @@ const {
   getTechTaskTemplateById,
   updateTechTaskTemplate,
   deleteTechTaskTemplate,
-} = require("../controllers/techTaskTemplates");
+} = require("../controllers/techTaskTemplateController");
 
 const router = Router();
 

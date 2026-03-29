@@ -31,7 +31,17 @@ async function createSubTask(req, res) {
 
 async function getAllSubTasks(req, res) {
   try {
-    const data = await SubTask.find().populate("devicePart").lean();
+    const { procedure } = req.query;
+    const query = {};
+
+    if (procedure) {
+      query.procedure = {
+        $regex: procedure,
+        $options: "i", // 🔍 case-insensitive
+      };
+    }
+
+    const data = await SubTask.find(query).populate("devicePart").lean();
     res.status(200).send({ success: true, data, total: data.length });
   } catch (e) {
     console.log(e);

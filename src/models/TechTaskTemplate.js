@@ -9,13 +9,17 @@ const TechTaskTemplateSchema = new Schema(
       unique: true,
     },
 
-    subtasks: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "SubTask",
-        required: true,
+    subtasks: {
+      type: [Schema.Types.ObjectId],
+      ref: "SubTask",
+      required: true,
+      validate: {
+        validator: function (value) {
+          return value.length === new Set(value.map((v) => v.toString())).size;
+        },
+        message: "Subtasks duplicadas no permitidas",
       },
-    ],
+    },
 
     active: {
       type: Boolean,

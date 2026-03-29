@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
+
 const WOoptions = require("./WOoptions");
 
 const workOrderOption = WOoptions.findOne({ name: "Work Orders Options" })
@@ -10,43 +11,28 @@ const workOrderOption = WOoptions.findOne({ name: "Work Orders Options" })
 // Tech subdocument schemas
 // ---------------------------------------------------------------------------
 
-const TechSubtaskSchema = Schema(
+const TechOrderSubTaskSchema = new Schema(
   {
-    templateId: {
+    subtask: {
       type: Schema.Types.ObjectId,
-      ref: "TaskTemplate",
+      ref: "SubTask",
+      required: true,
     },
-    groupPart: {
-      type: Schema.Types.ObjectId,
-      ref: "GroupPart",
+
+    snapshot: {
+      label: String,
+      description: String,
+      resultType: String,
+      unit: String,
+      // lo que necesites congelar
     },
-    task: {
-      type: Schema.Types.ObjectId,
-      ref: "TechTask",
-    },
-    selectedOption: {
-      type: Schema.Types.ObjectId,
-      ref: "TaskOption",
-    },
-    customValue: {
-      type: String,
-    },
-    result: {
-      type: String,
-      enum: ["ok", "fail", "na"],
-    },
-    availableOptions: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "TaskOption",
-      },
-    ],
-    allowCustomValue: Boolean,
-    comments: {
-      type: String,
-    },
+
+    order: Number,
+    comments: String,
+
+    value: Schema.Types.Mixed,
   },
-  { _id: true },
+  { _id: false },
 );
 
 const TechDiagnosticsSchema = Schema(
@@ -89,7 +75,7 @@ const TechSchema = Schema(
       type: Number,
     },
     planned: TechPlannedSchema,
-    subtasks: [TechSubtaskSchema],
+    subtasks: [TechOrderSubTaskSchema],
     diagnostics: TechDiagnosticsSchema,
   },
   { _id: false },
@@ -171,13 +157,8 @@ const WorkOrderSchema = Schema(
     },
     completed: {
       type: Number,
-      range: [
-        {
-          type: Number,
-          min: 0,
-          max: 100,
-        },
-      ],
+      min: 0,
+      max: 100,
     },
     deletion: {
       at: { type: Date },
@@ -202,11 +183,62 @@ const WorkOrderSchema = Schema(
     tech: {
       type: TechSchema,
       default: undefined,
+      required: function () {
+        return this.type === "tech";
+      },
     },
   },
   {
     timestamps: true,
   },
 );
+
+WorkOrderSchema.pre("validate", function (next) {
+  if (this.type === "tech") {
+    if (!this.tech) {
+      return next(new Error("Tech data is required"));
+    }
+
+    if (!this.tech.subtasks || this.tech.subtasks.length === 0) {
+      return next(new Error("Tech order must have subtasks"));
+    }
+  }
+
+  next();
+});
+
+WorkOrderSchema.pre("save", async function (next) {
+  if (this.type !== "tech" || !this.tech?.subtasks?.length) {
+    return next();
+  }
+
+  const SubTask = mongoose.model("SubTask");
+
+  const ids = this.tech.subtasks.map((st) => st.subtask);
+
+  const subTasks = await SubTask.find({ _id: { $in: ids } }).lean();
+
+  const map = new Map(subTasks.map((st) => [st._id.toString(), st]));
+
+  for (let st of this.tech.subtasks) {
+    // NO sobrescribir snapshots existentes
+    if (st.snapshot && st.snapshot.label) continue;
+
+    const subtaskDoc = map.get(st.subtask.toString());
+
+    if (!subtaskDoc) {
+      return next(new Error(`SubTask not found: ${st.subtask}`));
+    }
+
+    st.snapshot = {
+      label: subtaskDoc.label,
+      description: subtaskDoc.description,
+      resultType: subtaskDoc.resultType,
+      unit: subtaskDoc.unit,
+    };
+  }
+
+  next();
+});
 
 module.exports = mongoose.model("WorkOrders", WorkOrderSchema);

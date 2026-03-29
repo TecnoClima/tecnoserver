@@ -2,7 +2,10 @@ const mongoose = require("mongoose");
 const WorkOrder = require("../models/WorkOrder");
 const Device = require("../models/Device");
 
-// Subtask population paths for tech orders
+// ---------------------------------------------------------------------------
+// Population paths for tech orders
+// ---------------------------------------------------------------------------
+
 const TECH_POPULATE = [
   {
     path: "device",
@@ -17,46 +20,30 @@ const TECH_POPULATE = [
       },
     },
   },
-  { path: "tech.subtasks.groupPart", select: "name" },
-  { path: "tech.subtasks.task", select: "name" },
-  { path: "tech.subtasks.selectedOption", select: "label" },
+  { path: "tech.subtasks.subtask" },
   { path: "responsible", select: "idNumber name" },
   { path: "supervisor", select: "idNumber name" },
 ];
 
-function validateSubtasks(subtasks) {
-  for (const st of subtasks) {
-    // 🔥 VALIDACIÓN BASE (estructura)
-    if (!st.groupPart || !mongoose.isValidObjectId(st.groupPart)) {
-      return "Each subtask requires a valid groupPart id";
-    }
-
-    if (!st.task || !mongoose.isValidObjectId(st.task)) {
-      return "Each subtask requires a valid task id";
-    }
-
-    const hasOption =
-      st.selectedOption && mongoose.isValidObjectId(st.selectedOption);
-
-    const hasCustom =
-      typeof st.customValue === "string" && st.customValue.trim().length > 0;
-
-    // 🔥 VALIDACIÓN DE NEGOCIO
-    // Solo exigir valor si hay resultado
-    if (st.result && !hasOption && !hasCustom) {
-      return "If result is set, a value is required";
-    }
-  }
-
-  return null;
-}
+// ---------------------------------------------------------------------------
+// createTechOrder
+// ---------------------------------------------------------------------------
 
 async function createTechOrder(req, res) {
   try {
     const body = req.body;
 
-    if (!body.device)
+    if (!body.tech) {
+      return res.status(400).send({ error: "tech field is required" });
+    }
+
+    if (!body.tech.subtasks || body.tech.subtasks.length === 0) {
+      return res.status(400).send({ error: "tech.subtasks must not be empty" });
+    }
+
+    if (!body.device) {
       return res.status(400).send({ error: "device is required" });
+    }
 
     const device = await Device.findOne(
       mongoose.isValidObjectId(body.device)
@@ -65,64 +52,11 @@ async function createTechOrder(req, res) {
     ).lean();
     if (!device) return res.status(404).send({ error: "Device not found" });
 
-    const lastOrder = await WorkOrder.findOne(
-      {},
-      {},
-      { sort: { code: -1 } },
-    ).lean();
+    const lastOrder = await WorkOrder.findOne({}, {}, { sort: { code: -1 } }).lean();
     let code = lastOrder ? lastOrder.code + 1 : 10000;
 
-    // Build tech subdocument
-    const tech = {
-      generatedBy: body.tech?.generatedBy || undefined,
-      estimatedDuration: body.tech?.estimatedDuration || undefined,
-      planned: body.tech?.planned || undefined,
-      diagnostics: body.tech?.diagnostics || undefined,
-      subtasks: [],
-    };
-
-    // If a taskTemplateId is provided, copy its subtasks (snapshot behavior)
-    // if (body.taskTemplateId) {
-    //   if (!mongoose.isValidObjectId(body.taskTemplateId))
-    //     return res.status(400).send({ error: "Invalid taskTemplateId" });
-
-    //   const template = await TaskTemplate.findById(body.taskTemplateId).lean();
-    //   if (!template)
-    //     return res.status(404).send({ error: "TaskTemplate not found" });
-
-    // tech.subtasks = template.subtasks.map((st) => ({
-    //   groupPart: st.groupPart,
-    //   task: st.task,
-    //
-    // }));
-    // tech.subtasks = template.subtasks.map((st) => ({
-    //   templateId: template._id,
-
-    //   groupPart: st.groupPart,
-    //   task: st.task,
-
-    //   // snapshot
-    //   // groupPartName: st.groupPartName || undefined,
-    //   // taskName: st.taskName || undefined,
-
-    //   // options from template are available choices; no selectedOption yet
-    //   selectedOption: null,
-    //   customValue: null,
-    //   result: null,
-    //   comments: "",
-
-    //   availableOptions: st.options || [],
-    //   allowCustomValue: st.allowCustomValue || false,
-    // }));
-    // } else
-    if (body.tech?.subtasks?.length) {
-      const err = validateSubtasks(body.tech.subtasks);
-      if (err) return res.status(400).send({ error: err });
-      tech.subtasks = body.tech.subtasks;
-    }
-
-    let attempts = 0;
     let savedOrder = null;
+    let attempts = 0;
 
     while (attempts < 3 && !savedOrder) {
       try {
@@ -133,26 +67,27 @@ async function createTechOrder(req, res) {
           status: body.status || "Abierta",
           class: body.class,
           description: body.description,
-          solicitor: body.solicitor || { name: "Sistema" },
+          solicitor: body.solicitor,
+          clientWO: body.clientWO,
+          responsible: body.responsible || undefined,
+          supervisor: body.supervisor || undefined,
           registration: {
             date: new Date(),
             user: body.registrationUser || undefined,
           },
-          responsible: body.responsible || undefined,
-          supervisor: body.supervisor || undefined,
-          clientWO: body.clientWO,
-          tech,
+          tech: {
+            generatedBy: body.tech.generatedBy || undefined,
+            estimatedDuration: body.tech.estimatedDuration || undefined,
+            planned: body.tech.planned || undefined,
+            diagnostics: body.tech.diagnostics || undefined,
+            subtasks: body.tech.subtasks,
+          },
         });
-
-        if (tech.subtasks.length) {
-          const err = validateSubtasks(tech.subtasks);
-          if (err) return res.status(400).send({ error: err });
-        }
 
         savedOrder = await newOrder.save();
       } catch (e) {
         if (e.code === 11000) {
-          code += 1; // 🔥 clave
+          code += 1;
           attempts += 1;
         } else {
           throw e;
@@ -167,131 +102,172 @@ async function createTechOrder(req, res) {
     const populated = await WorkOrder.findById(savedOrder._id)
       .populate(TECH_POPULATE)
       .lean();
-    res.status(201).send(populated);
+
+    return res.status(201).send(populated);
   } catch (e) {
-    console.log(e);
-    res.status(400).send({ error: e.message });
+    return res.status(400).send({ error: e.message });
   }
 }
 
-async function getTechOrders(req, res) {
+// ---------------------------------------------------------------------------
+// getTechOrderById
+// ---------------------------------------------------------------------------
+
+async function getTechOrderById(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).send({ error: "Invalid id" });
+    }
+
+    const doc = await WorkOrder.findOne({
+      _id: id,
+      type: "tech",
+      "deletion.at": { $exists: false },
+    })
+      .populate(TECH_POPULATE)
+      .lean();
+
+    if (!doc) return res.status(404).send({ error: "Tech order not found" });
+
+    return res.status(200).send(doc);
+  } catch (e) {
+    return res.status(400).send({ error: e.message });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// getAllTechOrders
+// ---------------------------------------------------------------------------
+
+async function getAllTechOrders(req, res) {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const skip = parseInt(req.query.skip) || 0;
     const filter = { type: "tech", "deletion.at": { $exists: false } };
 
     if (req.query.status) filter.status = req.query.status;
+    if (req.query.device) filter.device = req.query.device;
+
+    let query = WorkOrder.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+
+    if (req.query.populate === "true") {
+      query = query.populate(TECH_POPULATE);
+    }
 
     const [docs, total] = await Promise.all([
-      WorkOrder.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate(TECH_POPULATE)
-        .lean(),
+      query.lean(),
       WorkOrder.countDocuments(filter),
     ]);
 
-    res.status(200).send({ total, limit, skip, data: docs });
+    return res.status(200).send({ total, limit, skip, data: docs });
   } catch (e) {
-    res.status(400).send({ error: e.message });
+    return res.status(400).send({ error: e.message });
   }
 }
 
-async function getTechOrderById(req, res) {
-  try {
-    const { id } = req.params;
-    if (!mongoose.isValidObjectId(id))
-      return res.status(400).send({ error: "Invalid id" });
-
-    const doc = await WorkOrder.findOne({
-      _id: id,
-      type: "tech",
-      deletion: null,
-    })
-      .populate(TECH_POPULATE)
-      .lean();
-    if (!doc) return res.status(404).send({ error: "Tech order not found" });
-
-    res.status(200).send(doc);
-  } catch (e) {
-    res.status(400).send({ error: e.message });
-  }
-}
+// ---------------------------------------------------------------------------
+// updateTechOrder
+// ---------------------------------------------------------------------------
 
 async function updateTechOrder(req, res) {
   try {
     const { id } = req.params;
-    if (!mongoose.isValidObjectId(id))
-      return res.status(400).send({ error: "Invalid id" });
 
-    const existing = await WorkOrder.findOne({
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).send({ error: "Invalid id" });
+    }
+
+    const workOrder = await WorkOrder.findOne({
       _id: id,
       type: "tech",
-      deletion: null,
-    }).lean();
-    if (!existing)
-      return res.status(404).send({ error: "Tech order not found" });
+      "deletion.at": { $exists: false },
+    });
+
+    if (!workOrder) return res.status(404).send({ error: "Tech order not found" });
 
     const body = req.body;
     const update = {};
 
-    // Top-level fields
-    const topLevelFields = [
-      "status",
-      "class",
-      "description",
-      "clientWO",
-      "completed",
-    ];
-    for (const field of topLevelFields) {
-      if (body[field] !== undefined) update[field] = body[field];
-    }
-
-    if (body.responsible !== undefined)
-      update.responsible = body.responsible || undefined;
-    if (body.supervisor !== undefined)
-      update.supervisor = body.supervisor || undefined;
-    if (body.solicitor !== undefined) update.solicitor = body.solicitor;
-
-    if (body.status === "Cerrada") {
-      update["closed.date"] = new Date();
-      update.completed = 100;
-    }
-
-    // Tech subdocument fields
-    if (body.tech) {
-      if (body.tech.estimatedDuration !== undefined)
-        update["tech.estimatedDuration"] = body.tech.estimatedDuration;
-      if (body.tech.generatedBy !== undefined)
-        update["tech.generatedBy"] = body.tech.generatedBy;
-
-      if (body.tech.planned !== undefined)
-        update["tech.planned"] = body.tech.planned;
-
-      if (body.tech.diagnostics !== undefined)
-        update["tech.diagnostics"] = body.tech.diagnostics;
-
-      if (body.tech.subtasks !== undefined) {
-        const err = validateSubtasks(body.tech.subtasks);
-        if (err) return res.status(400).send({ error: err });
-        update["tech.subtasks"] = body.tech.subtasks;
+    if (body.status !== undefined) {
+      update.status = body.status;
+      if (body.status === "Cerrada") {
+        update["closed.date"] = new Date();
+        update.completed = 100;
       }
     }
 
-    await WorkOrder.updateOne({ _id: id, type: "tech" }, { $set: update });
+    if (body.tech) {
+      if (body.tech.planned !== undefined) {
+        update["tech.planned"] = body.tech.planned;
+      }
+
+      if (body.tech.diagnostics !== undefined) {
+        update["tech.diagnostics"] = body.tech.diagnostics;
+      }
+
+      if (Array.isArray(body.tech.subtasks)) {
+        for (const incoming of body.tech.subtasks) {
+          const idx = workOrder.tech.subtasks.findIndex(
+            (st) => st.subtask.toString() === incoming.subtask?.toString(),
+          );
+
+          if (idx !== -1 && incoming.value !== undefined) {
+            update[`tech.subtasks.${idx}.value`] = incoming.value;
+          }
+        }
+      }
+    }
+
+    await WorkOrder.updateOne({ _id: id }, { $set: update });
 
     const updated = await WorkOrder.findById(id).populate(TECH_POPULATE).lean();
-    res.status(200).send(updated);
+    return res.status(200).send(updated);
   } catch (e) {
-    console.log(e);
-    res.status(400).send({ error: e.message });
+    return res.status(400).send({ error: e.message });
   }
 }
 
+// ---------------------------------------------------------------------------
+// deleteTechOrder  (soft delete)
+// ---------------------------------------------------------------------------
+
+async function deleteTechOrder(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).send({ error: "Invalid id" });
+    }
+
+    const workOrder = await WorkOrder.findOne({ _id: id, type: "tech" });
+
+    if (!workOrder) return res.status(404).send({ error: "Tech order not found" });
+
+    if (workOrder.deletion?.at) {
+      return res.status(400).send({ error: "Tech order already deleted" });
+    }
+
+    workOrder.deletion = {
+      at: new Date(),
+      by: req.user._id,
+    };
+
+    await workOrder.save();
+
+    return res.status(200).send({ message: "Tech order deleted", id });
+  } catch (e) {
+    return res.status(400).send({ error: e.message });
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 module.exports = {
   createTechOrder,
-  getTechOrders,
   getTechOrderById,
+  getAllTechOrders,
   updateTechOrder,
+  deleteTechOrder,
 };
