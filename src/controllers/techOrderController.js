@@ -23,6 +23,7 @@ const TECH_POPULATE = [
   },
   { path: "tech.subtasks.subtask" },
   { path: "responsible", select: "idNumber name" },
+  { path: "tech.generatedBy", select: "idNumber name" },
   { path: "supervisor", select: "idNumber name" },
 ];
 
@@ -32,10 +33,17 @@ const TECH_POPULATE = [
 
 async function createTechOrder(req, res) {
   try {
-    const body = req.body;
+    // Never mutate req.body — work from a destructured copy
+    const {
+      _id,
+      code: _code,
+      createdAt,
+      updatedAt,
+      __v,
+      ...body
+    } = req.body;
 
-    const user = await User.findOne({ idNumber: req.tokenData.id }).lean();
-
+    // -- Early validation --------------------------------------------------
     if (!body.tech) {
       return res.status(400).send({ error: "tech field is required" });
     }
@@ -48,6 +56,23 @@ async function createTechOrder(req, res) {
       return res.status(400).send({ error: "device is required" });
     }
 
+    // -- Helpers -----------------------------------------------------------
+
+    // Coerce to Number; "" / null / NaN → undefined
+    const toNum = (val) => {
+      if (val === undefined || val === null || val === "") return undefined;
+      const n = Number(val);
+      return isNaN(n) ? undefined : n;
+    };
+
+    // Coerce to Date; "" / invalid → undefined
+    const toDate = (val) => {
+      if (!val) return undefined;
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? undefined : d;
+    };
+
+    // -- Resolve device ----------------------------------------------------
     const device = await Device.findOne(
       mongoose.isValidObjectId(body.device)
         ? { _id: body.device }
@@ -55,13 +80,57 @@ async function createTechOrder(req, res) {
     ).lean();
     if (!device) return res.status(404).send({ error: "Device not found" });
 
-    const lastOrder = await WorkOrder.findOne(
-      {},
-      {},
-      { sort: { code: -1 } },
-    ).lean();
+    // -- Resolve generatedBy from token (never trust frontend) -------------
+    const user = await User.findOne({ idNumber: req.tokenData.id }).lean();
+
+    // -- Build planned subdocument -----------------------------------------
+    let planned;
+    if (body.tech.planned) {
+      const p = body.tech.planned;
+      planned = {
+        priority:       p.priority       || undefined,
+        activator:      p.activator      || undefined,
+        classification: p.classification || undefined,
+        requester:      p.requester      ? String(p.requester).trim() : undefined,
+        worktime:       toNum(p.worktime),
+        downtime:       toNum(p.downtime),
+        originDate:     toDate(p.originDate),
+        scheduledDate:  toDate(p.scheduledDate),
+        approvalDate:   toDate(p.approvalDate),
+        startDate:      toDate(p.startDate),
+        endDate:        toDate(p.endDate),
+      };
+    }
+
+    // -- Build diagnostics subdocument -------------------------------------
+    let diagnostics;
+    if (body.tech.diagnostics) {
+      const d = body.tech.diagnostics;
+      diagnostics = {
+        diagnostics:    d.diagnostics  || undefined,
+        failureType:    d.failureType  || undefined,
+        cause:          d.cause        || undefined,
+        method:         d.method       || undefined,
+        severity:       d.severity     || undefined,
+        damageType:     d.damageType   || undefined,
+        finalStatus:    d.finalStatus  || undefined,
+        assetsDowntime: toNum(d.assetsDowntime),
+      };
+    }
+
+    // -- Build subtasks array (snapshot injected by pre-save hook) ---------
+    const subtasks = body.tech.subtasks.map((st) => ({
+      subtask:  st.subtask,
+      order:    st.order,
+      comments: st.comments,
+      value:    st.value,
+    }));
+
+    // -- Resolve next code -------------------------------------------------
+    const lastOrder = await WorkOrder.findOne({}, {}, { sort: { code: -1 } }).lean();
     let code = lastOrder ? lastOrder.code + 1 : 10000;
 
+    // -- Save with duplicate-code retry ------------------------------------
     let savedOrder = null;
     let attempts = 0;
 
@@ -69,32 +138,25 @@ async function createTechOrder(req, res) {
       try {
         const newOrder = new WorkOrder({
           code,
-          device: device._id,
-          type: "tech",
-          status: body.status || "Abierta",
-          class: body.class,
-          description: body.description,
-          solicitor: body.solicitor,
-          clientWO: body.clientWO,
+          device:      device._id,
+          type:        "tech",
+          status:      body.status      || "Abierta",
+          class:       body.class       || undefined,
+          description: body.description || undefined,
+          solicitor:   body.solicitor   || undefined,
+          clientWO:    body.clientWO    || undefined,
           responsible: body.responsible || undefined,
-          supervisor: body.supervisor || undefined,
+          supervisor:  body.supervisor  || undefined,
           registration: {
-            date: new Date(),
-            user: body.registrationUser || undefined,
+            date: toDate(body.registerDate) || new Date(),
+            user: user ? user._id : undefined,
           },
           tech: {
-            generatedBy: user ? user._id : undefined,
-            estimatedDuration: body.tech.estimatedDuration || undefined,
-            planned: body.tech.planned || undefined,
-            diagnostics: body.tech.diagnostics || undefined,
-            // Each entry must have { subtask: ObjectId }.
-            // snapshot is generated by the pre("save") hook — do not send it.
-            subtasks: body.tech.subtasks.map((st) => ({
-              subtask: st.subtask,
-              order: st.order,
-              comments: st.comments,
-              value: st.value,
-            })),
+            generatedBy:       user ? user._id : undefined,
+            estimatedDuration: toNum(body.tech.estimatedDuration),
+            planned,
+            diagnostics,
+            subtasks,
           },
         });
 
@@ -130,7 +192,6 @@ async function createTechOrder(req, res) {
 
 async function getTechOrderById(req, res) {
   try {
-    console.log(req.params);
     const { id } = req.params;
 
     if (!mongoose.isValidObjectId(id)) {
@@ -142,6 +203,7 @@ async function getTechOrderById(req, res) {
       type: "tech",
       "deletion.at": { $exists: false },
     })
+      .select("-createdAt -updatedAt -__v -interventions")
       .populate(TECH_POPULATE)
       .lean();
 
@@ -207,16 +269,19 @@ async function updateTechOrder(req, res) {
     if (!workOrder)
       return res.status(404).send({ error: "Tech order not found" });
 
-    const body = req.body;
+    // Strip non-updatable / system fields coming from the frontend
+    const { _id, code, createdAt, updatedAt, __v, registerDate, ...body } =
+      req.body;
+
+    // Coerce a value to Number; returns undefined when conversion is invalid
+    const toNum = (val) => {
+      if (val === undefined || val === null || val === "") return undefined;
+      const n = Number(val);
+      return isNaN(n) ? undefined : n;
+    };
 
     // -- Top-level scalar fields ------------------------------------------
-    if (body.status !== undefined) {
-      workOrder.status = body.status;
-      if (body.status === "Cerrada") {
-        workOrder.closed = { date: new Date() };
-        workOrder.completed = 100;
-      }
-    }
+    if (body.device !== undefined) workOrder.device = body.device;
     if (body.description !== undefined)
       workOrder.description = body.description;
     if (body.class !== undefined) workOrder.class = body.class;
@@ -227,34 +292,56 @@ async function updateTechOrder(req, res) {
     if (body.supervisor !== undefined) workOrder.supervisor = body.supervisor;
     if (body.completed !== undefined) workOrder.completed = body.completed;
 
+    if (body.status !== undefined) {
+      workOrder.status = body.status;
+      if (body.status === "Cerrada") {
+        workOrder.closed = { date: new Date() };
+        workOrder.completed = 100;
+      }
+    }
+
     // -- Tech fields --------------------------------------------------------
     if (body.tech) {
-      if (body.tech.estimatedDuration !== undefined) {
-        workOrder.tech.estimatedDuration = body.tech.estimatedDuration;
+      const tech = body.tech;
+
+      // estimatedDuration — normalize to Number
+      if (tech.estimatedDuration !== undefined) {
+        const n = toNum(tech.estimatedDuration);
+        if (n !== undefined) workOrder.tech.estimatedDuration = n;
       }
 
-      // Full replacement of planned and diagnostics
-      if (body.tech.planned !== undefined) {
-        workOrder.tech.planned = body.tech.planned;
+      // planned — full replacement, normalize numeric fields
+      if (tech.planned !== undefined) {
+        const planned = { ...tech.planned };
+        if (planned.worktime !== undefined)
+          planned.worktime = toNum(planned.worktime) ?? planned.worktime;
+        if (planned.requester !== undefined)
+          planned.requester = planned.requester.trim();
+        if (planned.downtime !== undefined)
+          planned.downtime = toNum(planned.downtime) ?? planned.downtime;
+        workOrder.tech.planned = planned;
       }
 
-      if (body.tech.diagnostics !== undefined) {
-        workOrder.tech.diagnostics = body.tech.diagnostics;
+      // diagnostics — full replacement, normalize numeric fields
+      if (tech.diagnostics !== undefined) {
+        const diagnostics = { ...tech.diagnostics };
+        if (diagnostics.assetsDowntime !== undefined)
+          diagnostics.assetsDowntime =
+            toNum(diagnostics.assetsDowntime) ?? diagnostics.assetsDowntime;
+        workOrder.tech.diagnostics = diagnostics;
       }
 
-      // Subtasks: replace the array, preserving existing snapshots.
-      // The pre("save") hook will generate snapshots for any entry that
-      // lacks one (i.e. newly added subtasks).
-      if (Array.isArray(body.tech.subtasks)) {
+      // Subtasks: full replacement, preserving existing snapshots so the
+      // pre("save") hook skips re-fetching already-snapshotted entries.
+      if (Array.isArray(tech.subtasks)) {
         const existingMap = new Map(
           workOrder.tech.subtasks.map((st) => [st.subtask.toString(), st]),
         );
 
-        workOrder.tech.subtasks = body.tech.subtasks.map((incoming) => {
+        workOrder.tech.subtasks = tech.subtasks.map((incoming) => {
           const existing = existingMap.get(incoming.subtask?.toString());
           return {
             subtask: incoming.subtask,
-            // Carry the persisted snapshot forward so the hook skips re-fetch
             snapshot: existing?.snapshot ?? incoming.snapshot,
             order:
               incoming.order !== undefined ? incoming.order : existing?.order,
@@ -267,6 +354,9 @@ async function updateTechOrder(req, res) {
           };
         });
       }
+
+      // Required so Mongoose detects mutations on the nested tech object
+      workOrder.markModified("tech");
     }
 
     await workOrder.save();

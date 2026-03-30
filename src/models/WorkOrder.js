@@ -37,12 +37,14 @@ const TechOrderSubTaskSchema = new Schema(
 
 const TechDiagnosticsSchema = Schema(
   {
+    diagnostics: { type: String },
     failureType: { type: String },
     cause: { type: String },
     method: { type: String },
     severity: { type: String },
-    downtime: { type: Number },
+    assetsDowntime: { type: Number },
     damageType: { type: String },
+    finalStatus: { type: String },
   },
   { _id: false },
 );
@@ -50,17 +52,16 @@ const TechDiagnosticsSchema = Schema(
 const TechPlannedSchema = Schema(
   {
     priority: { type: String },
+    activator: { type: String },
     classification: { type: String },
     originDate: { type: Date },
     scheduledDate: { type: Date },
     approvalDate: { type: Date },
     startDate: { type: Date },
     endDate: { type: Date },
+    worktime: { type: Number },
     downtime: { type: Number },
-    requester: {
-      type: Schema.Types.ObjectId,
-      ref: "Users",
-    },
+    requester: { type: String },
   },
   { _id: false },
 );
@@ -70,6 +71,9 @@ const TechSchema = Schema(
     generatedBy: {
       type: Schema.Types.ObjectId,
       ref: "Users",
+    },
+    registerDate: {
+      type: Date,
     },
     estimatedDuration: {
       type: Number,
