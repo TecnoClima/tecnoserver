@@ -19,6 +19,7 @@ const Plant = require("../models/Plant");
 const { parseToUTC, formatToArgentinaTime } = require("../utils/utils");
 const { newIntervention } = require("./IntervController");
 const techOrderController = require("./techOrderController");
+const { type } = require("express/lib/response");
 
 function buildOrder(order, taskDate) {
   return {
@@ -277,6 +278,7 @@ async function getWObyId(req, res) {
       .populate("servicePoint");
 
     if (workOrder && workOrder.type === "tech") {
+      req.params.id = workOrder._id;
       return techOrderController.getTechOrderById(req, res);
     }
 
@@ -497,6 +499,7 @@ async function getWOList(req, res) {
           description: order.description,
           servicePoint: order.servicePoint && order.servicePoint.name,
           completed: order.completed,
+          type: order.type,
         };
       });
     res.status(200).send(array.sort((a, b) => (a.code < b.code ? 1 : -1)));
@@ -534,6 +537,7 @@ async function updateWorkOrder(req, res) {
     const intervetionsToCreate = order.interventions.filter((i) => !i.id);
     const existingOrder = await WorkOrder.findOne({ code });
     if (existingOrder.type === "tech") {
+      req.params.id = existingOrder._id;
       return techOrderController.updateTechOrder(req, res);
     }
     order.solicitor = { name: order.solicitor };

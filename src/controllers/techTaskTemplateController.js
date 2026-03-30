@@ -46,20 +46,6 @@ async function getAllTechTaskTemplates(req, res) {
     if (limit) query.limit(limit);
     const data = await query;
 
-    const ids = [...new Set(data.map(({ _id }) => _id))];
-    console.log(
-      ids.map((id) => {
-        const name = data.find((d) => d._id.toString() === id.toString()).name;
-        return {
-          id: id.toString(),
-          name,
-          timesId: data.filter((d) => d._id.toString() === id.toString())
-            .length,
-          timesName: data.filter((d) => d.name === name).length,
-        };
-      }),
-    );
-
     res.status(200).send({ success: true, data, total: data.length });
   } catch (e) {
     console.log(e);
