@@ -473,6 +473,13 @@ async function getWOList(req, res) {
       .populate({ path: "registration", populate: "user" })
       .populate({ path: "supervisor", select: ["id", "name"] })
       .populate({ path: "responsible", select: "idNumber" })
+      .populate({
+        path: "tech",
+        populate: {
+          path: "planned",
+          populate: ["classification"],
+        },
+      })
       .populate("servicePoint")
       .sort("code");
 
@@ -483,7 +490,7 @@ async function getWOList(req, res) {
       .map((order) => {
         return {
           code: order.code,
-          class: order.class,
+          class: order.class || order.tech?.planned?.classification?.label,
           status: order.status,
           devCode: order.device.code,
           devName: order.device.name,
@@ -491,9 +498,9 @@ async function getWOList(req, res) {
           line: order.device.line.name,
           area: order.device.line.area.name,
           plant: order.device.line.area.plant.name,
-          solicitor: order.solicitor.name,
+          solicitor: order.solicitor.name || order.tech?.planned?.requester,
           date: order.registration.date,
-          supervisor: order.supervisor && order.supervisor.name,
+          supervisor: order.supervisor?.name,
           responsible: order.responsible?.idNumber,
           close: order.closed.date || "",
           description: order.description,
