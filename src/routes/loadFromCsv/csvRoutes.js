@@ -31,9 +31,7 @@ const SubTask = require("../../models/SubTask");
 const workOrderController = require("../../controllersV2/workOrder");
 const Options = require("../../models/Options");
 const { addPlant } = require("../../controllers/plantController");
-// const { subtaskToBuild, tasksTemplates } = require("./data");
 const TechTaskTemplate = require("../../models/TechTaskTemplate");
-const { tasksTemplates } = require("./data");
 
 const server = Router();
 
@@ -167,44 +165,44 @@ server.post("/", async (req, res) => {
   let results = [];
   let errors = [];
   try {
-    const deviceParts = await Options.find({ type: "devicePart" }).lean();
+    // const deviceParts = await Options.find({ type: "devicePart" }).lean();
 
-    for (const item of tasksTemplates) {
-      try {
-        let subtasksResolved = [];
-        const { name, data } = item;
-        for (const item of data) {
-          const { procedure, resultType } = item;
+    // for (const item of tasksTemplates) {
+    //   try {
+    //     let subtasksResolved = [];
+    //     const { name, data } = item;
+    //     for (const item of data) {
+    //       const { procedure, resultType } = item;
 
-          const devicePart = deviceParts.find(
-            ({ label }) => label === item.devicePart,
-          )?._id;
+    //       const devicePart = deviceParts.find(
+    //         ({ label }) => label === item.devicePart,
+    //       )?._id;
 
-          const subtask = await SubTask.findOne({
-            procedure,
-            devicePart,
-            resultType,
-          });
+    //       const subtask = await SubTask.findOne({
+    //         procedure,
+    //         devicePart,
+    //         resultType,
+    //       });
 
-          if (!subtask) {
-            throw new Error(
-              `SubTask no encontrada → procedure: ${procedure}, devicePart: ${item.devicePart}, resultType: ${resultType}`,
-            );
-          }
+    //       if (!subtask) {
+    //         throw new Error(
+    //           `SubTask no encontrada → procedure: ${procedure}, devicePart: ${item.devicePart}, resultType: ${resultType}`,
+    //         );
+    //       }
 
-          subtasksResolved.push(subtask._id);
-        } // console.log("subtasksResolved", subtasksResolved);
-        const techTaskTemplate = await TechTaskTemplate({
-          name,
-          subtasks: subtasksResolved,
-        });
-        const save = await techTaskTemplate.save();
+    //       subtasksResolved.push(subtask._id);
+    //     } // console.log("subtasksResolved", subtasksResolved);
+    //     const techTaskTemplate = await TechTaskTemplate({
+    //       name,
+    //       subtasks: subtasksResolved,
+    //     });
+    //     const save = await techTaskTemplate.save();
 
-        results.push(save);
-      } catch (e) {
-        errors.push({ name: item.name, error: e.message });
-      }
-    }
+    //     results.push(save);
+    //   } catch (e) {
+    //     errors.push({ name: item.name, error: e.message });
+    //   }
+    // }
 
     res
       .status(200)
