@@ -10,7 +10,7 @@ const User = require("../models/User");
 const TECH_POPULATE = [
   {
     path: "device",
-    select: "code name type line",
+    select: "code name type line category service powerKcal",
     populate: {
       path: "line",
       select: "name",
@@ -25,6 +25,24 @@ const TECH_POPULATE = [
   { path: "responsible", select: "idNumber name" },
   { path: "tech.generatedBy", select: "idNumber name" },
   { path: "supervisor", select: "idNumber name" },
+  { path: "tech.planned.priority", select: "label" },
+  { path: "tech.planned.activator", select: "label" },
+  {
+    path: "tech.subtasks.subtask",
+    populate: {
+      path: "devicePart",
+    },
+  },
+  {
+    path: "tech.diagnostics",
+    populate: [
+      { path: "failureType" },
+      { path: "cause" },
+      { path: "method" },
+      { path: "severity" },
+      { path: "damageType" },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -34,14 +52,7 @@ const TECH_POPULATE = [
 async function createTechOrder(req, res) {
   try {
     // Never mutate req.body — work from a destructured copy
-    const {
-      _id,
-      code: _code,
-      createdAt,
-      updatedAt,
-      __v,
-      ...body
-    } = req.body;
+    const { _id, code: _code, createdAt, updatedAt, __v, ...body } = req.body;
 
     // -- Early validation --------------------------------------------------
     if (!body.tech) {
@@ -76,7 +87,7 @@ async function createTechOrder(req, res) {
     const device = await Device.findOne(
       mongoose.isValidObjectId(body.device)
         ? { _id: body.device }
-        : { code: body.device },
+        : { code: body.device }
     ).lean();
     if (!device) return res.status(404).send({ error: "Device not found" });
 
@@ -88,17 +99,17 @@ async function createTechOrder(req, res) {
     if (body.tech.planned) {
       const p = body.tech.planned;
       planned = {
-        priority:       p.priority       || undefined,
-        activator:      p.activator      || undefined,
+        priority: p.priority || undefined,
+        activator: p.activator || undefined,
         classification: p.classification || undefined,
-        requester:      p.requester      ? String(p.requester).trim() : undefined,
-        worktime:       toNum(p.worktime),
-        downtime:       toNum(p.downtime),
-        originDate:     toDate(p.originDate),
-        scheduledDate:  toDate(p.scheduledDate),
-        approvalDate:   toDate(p.approvalDate),
-        startDate:      toDate(p.startDate),
-        endDate:        toDate(p.endDate),
+        requester: p.requester ? String(p.requester).trim() : undefined,
+        worktime: toNum(p.worktime),
+        downtime: toNum(p.downtime),
+        originDate: toDate(p.originDate),
+        scheduledDate: toDate(p.scheduledDate),
+        approvalDate: toDate(p.approvalDate),
+        startDate: toDate(p.startDate),
+        endDate: toDate(p.endDate),
       };
     }
 
@@ -107,27 +118,31 @@ async function createTechOrder(req, res) {
     if (body.tech.diagnostics) {
       const d = body.tech.diagnostics;
       diagnostics = {
-        diagnostics:    d.diagnostics  || undefined,
-        failureType:    d.failureType  || undefined,
-        cause:          d.cause        || undefined,
-        method:         d.method       || undefined,
-        severity:       d.severity     || undefined,
-        damageType:     d.damageType   || undefined,
-        finalStatus:    d.finalStatus  || undefined,
+        diagnostics: d.diagnostics || undefined,
+        failureType: d.failureType || undefined,
+        cause: d.cause || undefined,
+        method: d.method || undefined,
+        severity: d.severity || undefined,
+        damageType: d.damageType || undefined,
+        finalStatus: d.finalStatus || undefined,
         assetsDowntime: toNum(d.assetsDowntime),
       };
     }
 
     // -- Build subtasks array (snapshot injected by pre-save hook) ---------
     const subtasks = body.tech.subtasks.map((st) => ({
-      subtask:  st.subtask,
-      order:    st.order,
+      subtask: st.subtask,
+      order: st.order,
       comments: st.comments,
-      value:    st.value,
+      value: st.value,
     }));
 
     // -- Resolve next code -------------------------------------------------
-    const lastOrder = await WorkOrder.findOne({}, {}, { sort: { code: -1 } }).lean();
+    const lastOrder = await WorkOrder.findOne(
+      {},
+      {},
+      { sort: { code: -1 } }
+    ).lean();
     let code = lastOrder ? lastOrder.code + 1 : 10000;
 
     // -- Save with duplicate-code retry ------------------------------------
@@ -138,21 +153,21 @@ async function createTechOrder(req, res) {
       try {
         const newOrder = new WorkOrder({
           code,
-          device:      device._id,
-          type:        "tech",
-          status:      body.status      || "Abierta",
-          class:       body.class       || undefined,
+          device: device._id,
+          type: "tech",
+          status: body.status || "Abierta",
+          class: body.class || undefined,
           description: body.description || undefined,
-          solicitor:   body.solicitor   || undefined,
-          clientWO:    body.clientWO    || undefined,
+          solicitor: body.solicitor || undefined,
+          clientWO: body.clientWO || undefined,
           responsible: body.responsible || undefined,
-          supervisor:  body.supervisor  || undefined,
+          supervisor: body.supervisor || undefined,
           registration: {
             date: toDate(body.registerDate) || new Date(),
             user: user ? user._id : undefined,
           },
           tech: {
-            generatedBy:       user ? user._id : undefined,
+            generatedBy: user ? user._id : undefined,
             estimatedDuration: toNum(body.tech.estimatedDuration),
             planned,
             diagnostics,
@@ -335,7 +350,7 @@ async function updateTechOrder(req, res) {
       // pre("save") hook skips re-fetching already-snapshotted entries.
       if (Array.isArray(tech.subtasks)) {
         const existingMap = new Map(
-          workOrder.tech.subtasks.map((st) => [st.subtask.toString(), st]),
+          workOrder.tech.subtasks.map((st) => [st.subtask.toString(), st])
         );
 
         workOrder.tech.subtasks = tech.subtasks.map((incoming) => {
