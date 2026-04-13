@@ -81,6 +81,7 @@ const TechSchema = Schema(
     planned: TechPlannedSchema,
     subtasks: [TechOrderSubTaskSchema],
     diagnostics: TechDiagnosticsSchema,
+    costCenter: { type: String },
   },
   { _id: false },
 );

@@ -87,7 +87,7 @@ async function createTechOrder(req, res) {
     const device = await Device.findOne(
       mongoose.isValidObjectId(body.device)
         ? { _id: body.device }
-        : { code: body.device }
+        : { code: body.device },
     ).lean();
     if (!device) return res.status(404).send({ error: "Device not found" });
 
@@ -141,7 +141,7 @@ async function createTechOrder(req, res) {
     const lastOrder = await WorkOrder.findOne(
       {},
       {},
-      { sort: { code: -1 } }
+      { sort: { code: -1 } },
     ).lean();
     let code = lastOrder ? lastOrder.code + 1 : 10000;
 
@@ -168,6 +168,7 @@ async function createTechOrder(req, res) {
           },
           tech: {
             generatedBy: user ? user._id : undefined,
+            costCenter: body.tech.costCenter,
             estimatedDuration: toNum(body.tech.estimatedDuration),
             planned,
             diagnostics,
@@ -325,6 +326,11 @@ async function updateTechOrder(req, res) {
         if (n !== undefined) workOrder.tech.estimatedDuration = n;
       }
 
+      // estimatedDuration — normalize to Number
+      if (body.tech?.costCenter !== undefined) {
+        workOrder.tech.costCenter = body.tech.costCenter;
+      }
+
       // planned — full replacement, normalize numeric fields
       if (tech.planned !== undefined) {
         const planned = { ...tech.planned };
@@ -350,7 +356,7 @@ async function updateTechOrder(req, res) {
       // pre("save") hook skips re-fetching already-snapshotted entries.
       if (Array.isArray(tech.subtasks)) {
         const existingMap = new Map(
-          workOrder.tech.subtasks.map((st) => [st.subtask.toString(), st])
+          workOrder.tech.subtasks.map((st) => [st.subtask.toString(), st]),
         );
 
         workOrder.tech.subtasks = tech.subtasks.map((incoming) => {
