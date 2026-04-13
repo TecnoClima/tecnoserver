@@ -59,9 +59,9 @@ async function createTechOrder(req, res) {
       return res.status(400).send({ error: "tech field is required" });
     }
 
-    if (!body.tech.subtasks || body.tech.subtasks.length === 0) {
-      return res.status(400).send({ error: "tech.subtasks must not be empty" });
-    }
+    // if (!body.tech.subtasks || body.tech.subtasks.length === 0) {
+    //   return res.status(400).send({ error: "tech.subtasks must not be empty" });
+    // }
 
     if (!body.device) {
       return res.status(400).send({ error: "device is required" });
