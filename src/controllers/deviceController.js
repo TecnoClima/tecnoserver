@@ -701,6 +701,7 @@ async function getDevicesReport(req, res) {
           AMBIENTE: d.environment,
           ACTIVO: d.active ? "SI" : "NO",
           SIGUIENDO: d.following,
+          FRECUENCIA: d.frequency,
         });
       }
     });

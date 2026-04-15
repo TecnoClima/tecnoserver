@@ -21,6 +21,10 @@ const { newIntervention } = require("./IntervController");
 const techOrderController = require("./techOrderController");
 const { type } = require("express/lib/response");
 
+function checkIsAdmin(user) {
+  return user.access.toLowerCase() === "admin";
+}
+
 function buildOrder(order, taskDate) {
   return {
     code: order.code,
@@ -439,13 +443,12 @@ async function getWOList(req, res) {
     const user = await userController.getFullUserFromToken(req);
     const filters = { deletion: null };
     const { year } = req.query;
+    const isAdmin = checkIsAdmin(user);
     let plantName = "";
-    if (user.access !== "Admin") {
-      if (user.plant) {
-        plantName = user.plant.name;
-      } else {
-        throw new Error("Usuario no asignado a ninguna planta");
-      }
+    if (user.plant) {
+      plantName = user.plant.name;
+    } else if (!isAdmin) {
+      throw new Error("Usuario no asignado a ninguna planta");
     }
     if (year)
       filters["registration.date"] = {

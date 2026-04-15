@@ -6,6 +6,10 @@ const Device = require("../models/Device");
 const WorkOrder = require("../models/WorkOrder");
 const userController = require("../controllers/userController");
 
+function checkIsAdmin(user) {
+  return user.access.toLowerCase() === "admin";
+}
+
 // function buildDate(date) {
 //   return {
 //     id: date._id,
@@ -65,7 +69,7 @@ async function getDates(req, res) {
   try {
     const { year } = req.query;
     const plant = await Plant.find(
-      req.query.plant ? { name: req.query.plant } : {}
+      req.query.plant ? { name: req.query.plant } : {},
     );
     const strategies = await Strategy.find({
       year,
@@ -155,26 +159,25 @@ async function addDates(req, res) {
 async function getPlan(req, res) {
   try {
     let plantName = "";
-    let user = null;
-    if (req.tokenData) {
-      user = await userController.getFullUserFromToken(req);
-      if (user.access !== "Admin") {
-        if (user.plant) {
-          plantName = user.plant.name;
-        } else {
-          throw new Error("Usuario no asignado a ninguna planta");
-        }
-      }
+    const user = await userController.getFullUserFromToken(req);
+    const isAdmin = checkIsAdmin(user);
+    if (user.plant) {
+      plantName = user.plant.name;
+    } else if (!isAdmin) {
+      throw new Error("Usuario no asignado a ninguna planta");
     }
 
     const year = Number(req.query.year);
-    const plant = await Plant.find(plantName ? { name: plantName } : {});
+    const plants = await Plant.find(plantName ? { name: plantName } : {});
     const strategies = await Strategy.find({
       year,
-      plant: plant.map((plant) => plant._id),
+      plant: plants.map((plant) => plant._id),
     });
 
-    const tasks = await Task.find({ strategy: strategies.map((s) => s._id) });
+    const tasks = await Task.find({
+      strategy: strategies.map((s) => s._id),
+    }).lean();
+
     const dates = await TaskDate.find({
       task: tasks.map((task) => task._id),
     }).populate([
