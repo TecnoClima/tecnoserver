@@ -271,6 +271,7 @@ async function getAllTechOrders(req, res) {
 async function updateTechOrder(req, res) {
   try {
     const { id } = req.params;
+    const user = await User.findOne({ idNumber: req.tokenData.id }).lean();
 
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).send({ error: "Invalid id" });
@@ -308,10 +309,15 @@ async function updateTechOrder(req, res) {
     if (body.supervisor !== undefined) workOrder.supervisor = body.supervisor;
     if (body.completed !== undefined) workOrder.completed = body.completed;
 
+    console.log("body.status", body.status);
+    console.log("body.code", body.status);
+
     if (body.status !== undefined) {
+      console.log("body.status !== undefined");
       workOrder.status = body.status;
       if (body.status === "Cerrada") {
-        workOrder.closed = { date: new Date() };
+        console.log(`body.status === "Cerrada"`);
+        workOrder.closed = { date: new Date(), user: user._id };
         workOrder.completed = 100;
       }
     }
