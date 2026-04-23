@@ -32,6 +32,7 @@ async function addAreaFromApp(req, res) {
     const { areas } = req.body;
     const plants = await Plant.find({
       name: areas.map((a) => a.plant.name),
+      deletion: null,
     });
     const newAreas = await Promise.all(
       plants.map(async (plant) => {
@@ -50,7 +51,7 @@ async function addAreaFromApp(req, res) {
           throw new Error(
             "'" +
               checkAreas.map((a) => plant.name + ">" + a.name).join(", ") +
-              "' ya existe(n) en base de datos"
+              "' ya existe(n) en base de datos",
           );
 
         return await Promise.all(
@@ -64,9 +65,9 @@ async function addAreaFromApp(req, res) {
               });
               const stored = await newArea.save();
               return stored;
-            })
+            }),
         );
-      })
+      }),
     );
     res.status(200).send({ success: newAreas.flat(1), item: "area" });
   } catch (e) {
@@ -79,7 +80,7 @@ async function getAreas(req, res) {
   try {
     const plants = req.tokenData
       ? await plantController.getUsersPlants(req)
-      : await Plant.find({});
+      : await Plant.find({ deletion: null });
     const areas = await Area.find({ plant: plants.map((p) => p._id) })
       .lean()
       .exec();
@@ -147,7 +148,7 @@ async function updateArea(req, res) {
       throw new Error("Nombre actualmente en uso");
     await Area.updateOne(
       { code: previous.code, name: previous.name },
-      { name: name.toUpperCase(), code: code.toUpperCase() }
+      { name: name.toUpperCase(), code: code.toUpperCase() },
     );
     const update = await Area.findOne({ code: code, name: name });
     res.status(200).send({ success: update, item: "area", previous });

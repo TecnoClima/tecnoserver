@@ -68,9 +68,10 @@ async function getDeviceDates(code, year) {
 async function getDates(req, res) {
   try {
     const { year } = req.query;
-    const plant = await Plant.find(
-      req.query.plant ? { name: req.query.plant } : {},
-    );
+    const plant = await Plant.find({
+      ...(req.query.plant ? { name: req.query.plant } : {}),
+      deletion: null,
+    });
     const strategies = await Strategy.find({
       year,
       plant: plant.map((plant) => plant._id),
@@ -168,7 +169,10 @@ async function getPlan(req, res) {
     }
 
     const year = Number(req.query.year);
-    const plants = await Plant.find(plantName ? { name: plantName } : {});
+    const plants = await Plant.find({
+      ...(plantName ? { name: plantName } : {}),
+      deletion: null,
+    });
     const strategies = await Strategy.find({
       year,
       plant: plants.map((plant) => plant._id),

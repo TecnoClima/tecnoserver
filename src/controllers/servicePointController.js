@@ -42,7 +42,7 @@ const getAll = async (plantName) => {
     });
     if (plants)
       spList = spList.filter((sp) =>
-        plants.map((p) => p.name).includes(sp.line.area.plant.name)
+        plants.map((p) => p.name).includes(sp.line.area.plant.name),
       );
     return spList.map(buildSP);
   } catch (e) {
@@ -55,7 +55,7 @@ const getServicePoints = async (req, res) => {
   try {
     const plants = req.tokenData
       ? await plantController.getUsersPlants(req)
-      : await Plant.find({});
+      : await Plant.find({ deletion: null });
     res
       .status(200)
       .send(await getAll(req.query.plant || plants.map((p) => p.name)));
@@ -113,7 +113,7 @@ async function addSPFromApp(req, res) {
       : await Line.find(
           typeof servicePoints[0]?.line === "string"
             ? { name: { $in: servicePoints.map((sp) => sp.line) } }
-            : { _id: { $in: servicePoints.map((sp) => sp.line) } }
+            : { _id: { $in: servicePoints.map((sp) => sp.line) } },
         ).populate({
           path: "area",
           select: "name",
@@ -128,7 +128,7 @@ async function addSPFromApp(req, res) {
           (l.name === sp.line &&
             l.area.name === sp.area &&
             l.area.plant.name === sp.plant) ||
-          l.name === sp.line.name
+          l.name === sp.line.name,
       );
       if (!line) error = `No se encontró línea ${sp.line}`;
       if (sp.code && checkCodes.find((e) => e.code === sp.code))
@@ -155,7 +155,7 @@ async function addSPFromApp(req, res) {
       });
     const lastCodes = lines.map((line) => {
       const lastSP = lineSPs.find(
-        (sp) => JSON.stringify(sp.line._id) === JSON.stringify(line._id)
+        (sp) => JSON.stringify(sp.line._id) === JSON.stringify(line._id),
       );
       return {
         lineCode: line.code,
@@ -183,7 +183,7 @@ async function addSPFromApp(req, res) {
         });
         // save the item
         return await newSP.save();
-      })
+      }),
     );
     if (!newItems[0]) throw new Error(errors[0].error);
 

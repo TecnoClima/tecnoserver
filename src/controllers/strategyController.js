@@ -53,7 +53,7 @@ async function createStrategy(req, res) {
           },
           { path: "supervisor" },
           { path: "people" },
-        ])
+        ]),
       ),
     });
   } catch (e) {
@@ -113,9 +113,12 @@ async function getStrategies(req, res) {
       }
     }
 
-    const plant = (await Plant.find(plantName ? { name: plantName } : {})).map(
-      (plant) => plant._id
-    );
+    const plant = (
+      await Plant.find({
+        ...(plantName ? { name: plantName } : {}),
+        deletion: null,
+      })
+    ).map((plant) => plant._id);
     const filters = { plant };
     if (year) filters.year = year;
     const strategies = await Strategy.find(filters).populate([

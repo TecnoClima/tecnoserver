@@ -17,7 +17,7 @@ async function setTasks(req, res) {
     const data = { year, name, frequency, observations };
     const plant = await Plant.findOne({ name: program.plant });
     const strategies = (await Strategy.find({ year, plant: plant._id })).map(
-      (strategy) => strategy._id
+      (strategy) => strategy._id,
     );
     const newStrategy = (
       await Strategy.findOne({ year, plant: plant._id, name })
@@ -49,12 +49,12 @@ async function setTasks(req, res) {
           ...new Set(
             dates
               .filter((date) => !!date.workOrders[0])
-              .map((date) => date.date)
+              .map((date) => date.date),
           ),
         ];
         //search and update or create the task.
         let assignedTask = currentTasks.find(
-          (task) => task.strategy === newStrategy
+          (task) => task.strategy === newStrategy,
         );
         if (!assignedTask) {
           const task = await Task({ device: device._id, ...data });
@@ -67,7 +67,8 @@ async function setTasks(req, res) {
           let ordersArray = [];
           for (let taskDate of dates.filter(
             (item) =>
-              new Date(item.date).toISOString() === new Date(date).toISOString()
+              new Date(item.date).toISOString() ===
+              new Date(date).toISOString(),
           )) {
             for (let order of taskDate.workOrders) {
               if (!ordersArray.map((order) => order.code).includes(order.code))
@@ -122,7 +123,7 @@ async function taskOrders(req, res) {
 
     await TaskDates.updateMany(
       { workOrders: workOrder._id },
-      { $pull: { workOrders: workOrder._id } }
+      { $pull: { workOrders: workOrder._id } },
     );
 
     if (date) {
@@ -151,7 +152,10 @@ async function taskDeviceList(req, res) {
   try {
     const { plantName, year } = req.query;
     //taskList
-    const dBPlant = await Plant.find(plantName ? { name: plantName } : {});
+    const dBPlant = await Plant.find({
+      ...(plantName ? { name: plantName } : {}),
+      deletion: null,
+    });
     const filter = { year };
     const plant = dBPlant[0] ? dBPlant.map((plant) => plant._id) : undefined;
     if (plant) filter.plant = plant;
@@ -223,7 +227,7 @@ async function taskDeviceList(req, res) {
       ) {
         let inReclaimed = reclaimed.find(
           (element) =>
-            JSON.stringify(element._id) === JSON.stringify(device._id)
+            JSON.stringify(element._id) === JSON.stringify(device._id),
         );
         const task = plan.find((task) => task.device.code === device.code);
 

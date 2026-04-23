@@ -328,7 +328,11 @@ async function fullDeviceOptions(req, res) {
     const gases = await Refrigerant.find({});
     const { types, service, status, category, environment } = deviceOptions;
     //revisar:
-    const plant = await Plant.find({}).select(["code", "name", "id"]);
+    const plant = await Plant.find({ deletion: null }).select([
+      "code",
+      "name",
+      "id",
+    ]);
     const area = await Area.find({}).select(["code", "name", "plant", "id"]);
     const line = await Line.find({}).select(["code", "name", "area", "id"]);
     const spList = await ServicePoint.find({}).select([

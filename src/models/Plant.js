@@ -18,15 +18,13 @@ const PlantSchema = Schema(
       required: true,
       unique: true,
     },
-    // areas:[{
-    //     type: Schema.Types.ObjectId,
-    //     ref: 'Area',
-    //     populate: true,
-    // }]
+    deletion: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // PlantSchema.pre('find', autoPopulateArea)

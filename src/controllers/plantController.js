@@ -3,7 +3,10 @@ const Plant = require("../models/Plant");
 const userController = require("./userController");
 
 async function addNew(name, code) {
-  const checkPlant = await Plant.find({ $or: [{ name }, { code }] })
+  const checkPlant = await Plant.find({
+    $or: [{ name }, { code }],
+    deletion: null,
+  })
     .lean()
     .exec();
   if (checkPlant.length) {
@@ -24,7 +27,9 @@ async function getPlant(args) {
   if (code || name) {
     return await Plant.findOne(code ? { code } : { name });
   } else {
-    return await Plant.find(code ? { code } : name ? { name } : {});
+    return await Plant.find(
+      code ? { code } : name ? { name } : { deletion: null },
+    );
   }
 }
 
@@ -38,7 +43,10 @@ async function getUsersPlants(req) {
       throw new Error("Usuario no asignado a ninguna planta");
     }
   }
-  return await Plant.find(plantName ? { name: plantName } : {});
+  return await Plant.find({
+    ...(plantName ? { name: plantName } : {}),
+    deletion: null,
+  });
 }
 //*************** FOR ENDPOINTS ***************/
 async function getPlants(req, res) {
@@ -50,7 +58,7 @@ async function getPlants(req, res) {
     } else if (req.tokenData) {
       result = await getUsersPlants(req);
     } else {
-      result = await Plant.find({});
+      result = await Plant.find({ deletion: null });
     }
     // result = await getPlant(
     //   code ? { code } : plantName ? { name: plantName } : name ? { name } : {}
@@ -66,8 +74,8 @@ async function addPlant(req, res) {
   try {
     const newPlants = await Promise.all(
       plants.map(async (p) =>
-        addNew(p.name.toUpperCase(), p.code.toUpperCase())
-      )
+        addNew(p.name.toUpperCase(), p.code.toUpperCase()),
+      ),
     );
     res.status(200).send({ success: newPlants, item: "plant" });
   } catch (e) {
@@ -91,10 +99,12 @@ async function getPlantByCode(plantCode) {
 
 async function getPlantNames(req, res) {
   try {
-    const plants = (await Plant.find({}).lean().exec()).map((plant) => {
-      const { name, code } = plant;
-      return { name, code };
-    });
+    const plants = (await Plant.find({ deletion: null }).lean().exec()).map(
+      (plant) => {
+        const { name, code } = plant;
+        return { name, code };
+      },
+    );
     res.status(200).send(plants);
   } catch (e) {
     res.status(400).send({ error: e.message });
@@ -144,7 +154,10 @@ async function updatePlant(req, res) {
       code: previous.code,
     });
     if (!plant) throw new Error("La planta a editar no existe");
-    const check = await Plant.find({ $or: [{ name: name }, { code: code }] });
+    const check = await Plant.find({
+      $or: [{ name: name }, { code: code }],
+      deletion: null,
+    });
     if (code !== plant.code && check.find((p) => p.code === code)) {
       throw new Error("Código de Planta en uso");
     }
@@ -153,7 +166,7 @@ async function updatePlant(req, res) {
 
     await Plant.updateOne(
       { code: previous.code, name: previous.name },
-      { name: name.toUpperCase(), code: code.toUpperCase() }
+      { name: name.toUpperCase(), code: code.toUpperCase() },
     );
     const update = await Plant.findOne({ code: code, name: name });
     res.status(200).send({ success: update, item: "plant", previous });
