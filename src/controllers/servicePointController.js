@@ -94,34 +94,47 @@ async function addSPFromApp(req, res) {
       name: { $in: servicePoints.map((sp) => sp.name) },
     });
     // get lines
-    let line;
-    if (servicePoints.length === 1) {
-      line = await Line.findOne({ name: servicePoints[0].line }).populate({
+    const lineIdentifiers = [...new Set(servicePoints.map(({ line }) => line))];
+    const validIds = lineIdentifiers.filter((v) =>
+      mongoose.Types.ObjectId.isValid(v),
+    );
+    const codeOrNames = lineIdentifiers.filter(
+      (v) => !mongoose.Types.ObjectId.isValid(v),
+    );
+
+    const lines = await Line.find({
+      $or: [
+        {
+          code: { $in: codeOrNames },
+        },
+        {
+          name: { $in: codeOrNames },
+        },
+        { _id: { $in: validIds } },
+      ],
+    })
+      .populate({
         path: "area",
         select: "name",
         populate: { path: "plant", select: "name" },
-      });
-      if (!line)
-        line = await Line.findById(servicePoints[0].line).populate({
-          path: "area",
-          select: "name",
-          populate: { path: "plant", select: "name" },
-        });
-    }
-    const lines = line
-      ? [line]
-      : await Line.find(
-          typeof servicePoints[0]?.line === "string"
-            ? { name: { $in: servicePoints.map((sp) => sp.line) } }
-            : { _id: { $in: servicePoints.map((sp) => sp.line) } },
-        ).populate({
-          path: "area",
-          select: "name",
-          populate: { path: "plant", select: "name" },
-        });
+      })
+      .lean();
+
+    const lastLineSPCodes = await Promise.all(
+      lines.map(async ({ _id, code }) => {
+        const last = await ServicePoint.findOne({ line: _id })
+          .sort({ code: -1 })
+          .lean();
+
+        return {
+          line: code,
+          lastCode: last?.code ?? 0,
+        };
+      }),
+    );
 
     // check for errors
-    for (let sp of servicePoints) {
+    servicePoints.forEach(async (sp, index) => {
       let error = "";
       const line = lines.find(
         (l) =>
@@ -130,9 +143,12 @@ async function addSPFromApp(req, res) {
             l.area.plant.name === sp.plant) ||
           l.name === sp.line.name,
       );
-      if (!line) error = `No se encontró línea ${sp.line}`;
-      if (sp.code && checkCodes.find((e) => e.code === sp.code))
-        error = `código actualmente en uso`;
+      if (!line) {
+        error = `No se encontró línea ${sp.line}`;
+      }
+      const isCodeInUse =
+        !!sp.code && checkCodes.find((e) => e.code === sp.code);
+      if (isCodeInUse) error = `código actualmente en uso`;
       if (checkSP.find((e) => e.name === sp.name))
         error = `Ya existe lugar de servicio ${sp.plant} > ${sp.area} > ${sp.line} > ${sp.servicePoint}`;
       if (error) {
@@ -140,49 +156,41 @@ async function addSPFromApp(req, res) {
       } else {
         sp.line = line;
       }
-    }
+
+      if (isCodeInUse) {
+        const lastCode = lastLineSPCodes.find(({ line }) => line === line.code);
+        const lineCodesAdd = servicePoints
+          .slice(0, index + 1)
+          .filter(({ line }) => line === sp.line).length;
+
+        const codeNumber = Number(lastCode || 0) + lineCodesAdd;
+        const newNumber = `${codeNumber < 100 ? "0" : ""}${codeNumber < 10 ? "0" : ""}${codeNumber}`;
+        sp.code = `${line.code}-LS${newNumber}`;
+      }
+    });
+
     errors = [...errors, ...servicePoints.filter((sp) => !!sp.error)];
+
     // clean the service points array
     servicePoints = servicePoints.filter((sp) => !sp.error);
 
-    //get the lastCodes object
-    const lineSPs = await ServicePoint.find({
-      line: { $in: lines.map((l) => l._id) },
-    })
-      .populate({ path: "line" })
-      .sort({
-        code: -1,
-      });
-    const lastCodes = lines.map((line) => {
-      const lastSP = lineSPs.find(
-        (sp) => JSON.stringify(sp.line._id) === JSON.stringify(line._id),
-      );
-      return {
-        lineCode: line.code,
-        code: lastSP ? parseInt(lastSP.code.match(/\d+$/)) : 0,
-      };
-    });
     // create the items
     const newItems = await Promise.all(
       servicePoints.map(async (sp) => {
-        // ensure the code
-        if (!sp.code) {
-          const lineCode = sp.line.code;
-          const number =
-            lastCodes.find((lc) => lc.lineCode === lineCode).code + 1;
-          lastCodes.find((lc) => lc.lineCode === lineCode).code++;
-          const code =
-            (number < 100 ? "0" : "") + (number < 10 ? "0" : "") + number;
-          sp.code = lineCode + "-LS" + code;
-        }
         // create the item
-        const newSP = await ServicePoint({
-          ...sp,
-          line: sp.line._id,
-          name: sp.name || sp.servicePoint,
-        });
-        // save the item
-        return await newSP.save();
+        try {
+          const newSP = await ServicePoint({
+            ...sp,
+            line: sp.line._id,
+            name: (sp.name || sp.servicePoint).toUpperCase(),
+          });
+          // save the item
+          const savedItem = await newSP.save();
+          console.log(sp.code, "saved");
+          return savedItem;
+        } catch (e) {
+          console.log(`${sp.name}`, e);
+        }
       }),
     );
     if (!newItems[0]) throw new Error(errors[0].error);
