@@ -2,6 +2,23 @@ const mongoose = require("mongoose");
 const WorkOrder = require("../models/WorkOrder");
 const Device = require("../models/Device");
 const User = require("../models/User");
+const { parseToUTC } = require("../utils/utils");
+
+// -- Helpers -----------------------------------------------------------
+
+// Coerce to Number; "" / null / NaN → undefined
+const toNum = (val) => {
+  if (val === undefined || val === null || val === "") return undefined;
+  const n = Number(val);
+  return isNaN(n) ? undefined : n;
+};
+
+// Coerce to Date; "" / invalid → undefined
+const toDate = (val) => {
+  if (!val) return undefined;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? undefined : d;
+};
 
 // ---------------------------------------------------------------------------
 // Population paths for tech orders
@@ -67,22 +84,6 @@ async function createTechOrder(req, res) {
       return res.status(400).send({ error: "device is required" });
     }
 
-    // -- Helpers -----------------------------------------------------------
-
-    // Coerce to Number; "" / null / NaN → undefined
-    const toNum = (val) => {
-      if (val === undefined || val === null || val === "") return undefined;
-      const n = Number(val);
-      return isNaN(n) ? undefined : n;
-    };
-
-    // Coerce to Date; "" / invalid → undefined
-    const toDate = (val) => {
-      if (!val) return undefined;
-      const d = new Date(val);
-      return isNaN(d.getTime()) ? undefined : d;
-    };
-
     // -- Resolve device ----------------------------------------------------
     const device = await Device.findOne(
       mongoose.isValidObjectId(body.device)
@@ -105,11 +106,11 @@ async function createTechOrder(req, res) {
         requester: p.requester ? String(p.requester).trim() : undefined,
         worktime: toNum(p.worktime),
         downtime: toNum(p.downtime),
-        originDate: toDate(p.originDate),
-        scheduledDate: toDate(p.scheduledDate),
-        approvalDate: toDate(p.approvalDate),
-        startDate: toDate(p.startDate),
-        endDate: toDate(p.endDate),
+        originDate: parseToUTC(toDate(p.originDate)),
+        scheduledDate: parseToUTC(toDate(p.scheduledDate)),
+        approvalDate: parseToUTC(toDate(p.approvalDate)),
+        startDate: parseToUTC(toDate(p.startDate)),
+        endDate: parseToUTC(toDate(p.endDate)),
       };
     }
 
@@ -163,7 +164,7 @@ async function createTechOrder(req, res) {
           responsible: body.responsible || undefined,
           supervisor: body.supervisor || undefined,
           registration: {
-            date: toDate(body.registerDate) || new Date(),
+            date: body.registerDate ? new Date(body.registerDate) : new Date(),
             user: user ? user._id : undefined,
           },
           tech: {
@@ -287,8 +288,7 @@ async function updateTechOrder(req, res) {
       return res.status(404).send({ error: "Tech order not found" });
 
     // Strip non-updatable / system fields coming from the frontend
-    const { _id, code, createdAt, updatedAt, __v, registerDate, ...body } =
-      req.body;
+    const { _id, code, createdAt, updatedAt, __v, ...body } = req.body;
 
     // Coerce a value to Number; returns undefined when conversion is invalid
     const toNum = (val) => {
@@ -308,16 +308,13 @@ async function updateTechOrder(req, res) {
       workOrder.responsible = body.responsible;
     if (body.supervisor !== undefined) workOrder.supervisor = body.supervisor;
     if (body.completed !== undefined) workOrder.completed = body.completed;
-
-    console.log("body.status", body.status);
-    console.log("body.code", body.status);
+    if (body.registerDate !== undefined)
+      workOrder.registration.date = new Date(body.registerDate);
 
     if (body.status !== undefined) {
-      console.log("body.status !== undefined");
       workOrder.status = body.status;
       if (body.status === "Cerrada") {
-        console.log(`body.status === "Cerrada"`);
-        workOrder.closed = { date: new Date(), user: user._id };
+        workOrder.closed = { date: parseToUTC(new Date()), user: user._id };
         workOrder.completed = 100;
       }
     }
@@ -346,6 +343,15 @@ async function updateTechOrder(req, res) {
           planned.requester = planned.requester.trim();
         if (planned.downtime !== undefined)
           planned.downtime = toNum(planned.downtime) ?? planned.downtime;
+        if (planned.originDate !== undefined)
+          planned.originDate = planned.originDate;
+        if (planned.scheduledDate !== undefined)
+          scheduledDate: planned.scheduledDate;
+        if (planned.scheduledDate !== undefined)
+          approvalDate: planned.approvalDate;
+        if (planned.scheduledDate !== undefined) startDate: planned.startDate;
+        if (planned.scheduledDate !== undefined) endDate: planned.endDate;
+
         workOrder.tech.planned = planned;
       }
 
