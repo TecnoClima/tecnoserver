@@ -106,11 +106,11 @@ async function createTechOrder(req, res) {
         requester: p.requester ? String(p.requester).trim() : undefined,
         worktime: toNum(p.worktime),
         downtime: toNum(p.downtime),
-        originDate: parseToUTC(toDate(p.originDate)),
-        scheduledDate: parseToUTC(toDate(p.scheduledDate)),
-        approvalDate: parseToUTC(toDate(p.approvalDate)),
-        startDate: parseToUTC(toDate(p.startDate)),
-        endDate: parseToUTC(toDate(p.endDate)),
+        originDate: p.originDate,
+        scheduledDate: p.scheduledDate,
+        approvalDate: p.approvalDate,
+        startDate: p.startDate,
+        endDate: p.endDate,
       };
     }
 
