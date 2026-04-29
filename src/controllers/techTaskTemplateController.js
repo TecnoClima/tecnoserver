@@ -13,9 +13,14 @@ async function validateSubTaskIds(ids) {
 
 async function createTechTaskTemplate(req, res) {
   try {
-    const { name, subtasks, active } = req.body;
+    const { name, description, subtasks } = req.body;
 
-    const template = new TechTaskTemplate({ name, subtasks, active });
+    const template = new TechTaskTemplate({
+      name: name.toUpperCase(),
+      description,
+      subtasks,
+      active: true,
+    });
     await template.save();
 
     const created = await TechTaskTemplate.findById(template._id)
@@ -85,14 +90,15 @@ async function updateTechTaskTemplate(req, res) {
         .status(404)
         .send({ success: false, message: "TechTaskTemplate not found" });
 
-    const { name, subtasks, active } = req.body;
+    const { name, description, subtasks, active } = req.body;
     const update = {};
 
-    if (name !== undefined) update.name = name;
+    if (name !== undefined) update.name = name.toUpperCase();
+    if (description !== undefined) update.description = description;
     if (active !== undefined) update.active = active;
 
     if (subtasks !== undefined) {
-      const missing = await validateSubTaskIds(subtasks);
+      const missing = await validateSubTaskIds(subtasks.map(({ _id }) => _id));
       if (missing.length > 0)
         return res.status(400).send({
           success: false,

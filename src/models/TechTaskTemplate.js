@@ -8,7 +8,10 @@ const TechTaskTemplateSchema = new Schema(
       required: true,
       unique: true,
     },
-
+    description: {
+      type: String,
+      default: "",
+    },
     subtasks: {
       type: [Schema.Types.ObjectId],
       ref: "SubTask",
