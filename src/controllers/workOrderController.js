@@ -523,7 +523,8 @@ async function deleteWorkOrder(req, res) {
   try {
     const { code } = req.params;
     const user = await User.findOne({ idNumber: req.tokenData.id });
-    const order = await WorkOrder.findOne({ code });
+    const order = await WorkOrder.findOne({ code }).lean();
+    req.params.id = order._id;
     if (order?.type === "tech") {
       return techOrderController.deleteTechOrder(req, res);
     }
@@ -535,6 +536,7 @@ async function deleteWorkOrder(req, res) {
 
     res.status(200).send({ result: "success", code });
   } catch (e) {
+    console.log(e);
     res.status(400).send({ error: e.message });
   }
 }

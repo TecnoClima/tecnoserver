@@ -425,7 +425,7 @@ async function deleteTechOrder(req, res) {
 
     workOrder.deletion = {
       at: new Date(),
-      by: req.user._id,
+      by: req.tokenData._id,
     };
 
     await workOrder.save();
