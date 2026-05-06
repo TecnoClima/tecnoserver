@@ -314,7 +314,7 @@ async function updateTechOrder(req, res) {
     if (body.status !== undefined) {
       workOrder.status = body.status;
       if (body.status === "Cerrada") {
-        workOrder.closed = { date: parseToUTC(new Date()), user: user._id };
+        workOrder.closed = { date: new Date(), user: user._id };
         workOrder.completed = 100;
       }
     }
