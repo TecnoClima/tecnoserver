@@ -55,7 +55,7 @@ const TechPlannedSchema = Schema(
     activator: { type: Schema.Types.ObjectId, ref: "Options" },
     classification: { type: Schema.Types.ObjectId, ref: "Options" },
     originDate: { type: Date },
-    scheduledDate: { type: Date },
+    // scheduledDate: { type: Date },
     approvalDate: { type: Date },
     startDate: { type: Date },
     endDate: { type: Date },
