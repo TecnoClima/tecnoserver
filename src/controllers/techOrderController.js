@@ -107,7 +107,7 @@ async function createTechOrder(req, res) {
         worktime: toNum(p.worktime),
         downtime: toNum(p.downtime),
         originDate: p.originDate,
-        scheduledDate: p.scheduledDate,
+        // scheduledDate: p.scheduledDate,
         approvalDate: p.approvalDate,
         startDate: p.startDate,
         endDate: p.endDate,
@@ -345,12 +345,12 @@ async function updateTechOrder(req, res) {
           planned.downtime = toNum(planned.downtime) ?? planned.downtime;
         if (planned.originDate !== undefined)
           planned.originDate = planned.originDate;
-        if (planned.scheduledDate !== undefined)
-          scheduledDate: planned.scheduledDate;
-        if (planned.scheduledDate !== undefined)
+        // if (planned.scheduledDate !== undefined)
+        //   scheduledDate: planned.scheduledDate;
+        if (planned.approvalDate !== undefined)
           approvalDate: planned.approvalDate;
-        if (planned.scheduledDate !== undefined) startDate: planned.startDate;
-        if (planned.scheduledDate !== undefined) endDate: planned.endDate;
+        if (planned.startDate !== undefined) startDate: planned.startDate;
+        if (planned.endDate !== undefined) endDate: planned.endDate;
 
         workOrder.tech.planned = planned;
       }
