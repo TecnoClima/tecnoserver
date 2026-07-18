@@ -157,6 +157,225 @@ async function addDates(req, res) {
   }
 }
 
+// async function getPlan(req, res) {
+//   try {
+//     let plantName = "";
+//     const user = await userController.getFullUserFromToken(req);
+//     const isAdmin = checkIsAdmin(user);
+//     if (user.plant) {
+//       plantName = user.plant.name;
+//     } else if (!isAdmin) {
+//       throw new Error("Usuario no asignado a ninguna planta");
+//     }
+
+//     const year = Number(req.query.year);
+//     const plants = await Plant.find({
+//       ...(plantName ? { name: plantName } : {}),
+//       deletion: null,
+//     });
+//     const strategies = await Strategy.find({
+//       year,
+//       plant: plants.map((plant) => plant._id),
+//     });
+
+//     const tasks = await Task.find({
+//       device: "64c8efe6667bef52e3834dc2",
+//       strategy: strategies.map((s) => s._id),
+//     }).lean();
+
+//     // const dates = await TaskDate.find({
+//     //   task: tasks.map((task) => task._id),
+//     //   // _id: { $in: ["6a10511e39e1e87cd1d07f30"] },
+//     // }).populate([
+//     //   {
+//     //     path: "task",
+//     //     populate: [
+//     //       {
+//     //         path: "responsible",
+//     //         select: ["idNumber", "name"],
+//     //       },
+//     //       {
+//     //         path: "device",
+//     //         select: ["code", "name"],
+//     //         populate: {
+//     //           path: "line",
+//     //           select: "name",
+//     //           populate: {
+//     //             path: "area",
+//     //             select: "name",
+//     //             populate: {
+//     //               path: "plant",
+//     //               select: "name",
+//     //             },
+//     //           },
+//     //         },
+//     //       },
+//     //       {
+//     //         path: "strategy",
+//     //         populate: { path: "supervisor", select: ["idNumber", "name"] },
+//     //       },
+//     //     ],
+//     //   },
+//     //   {
+//     //     path: "workOrders",
+//     //     select: ["code", "completed"],
+//     //   },
+//     // ]);
+
+//     // 1. Definimos las fechas límite basadas en el "hoy" de la consulta
+//     const hoy = new Date();
+
+//     const unMesPosterior = new Date();
+//     unMesPosterior.setMonth(hoy.getMonth() + 1);
+
+//     const dates = await TaskDate.aggregate([
+//       // Paso 1: Ordenar cronológicamente por tarea y fecha para que el agrupamiento funcione bien
+//       { $sort: { task: 1, date: 1 } },
+
+//       // Paso 2: Agrupar por cada tarea única
+//       {
+//         $group: {
+//           _id: "$task",
+//           // Guardamos TODOS los registros de esa tarea en un array temporal
+//           todosLosRegistros: { $push: "$$ROOT" },
+//           // Identificamos los registros que pertenecen al "pasado" (menores o iguales a hoy)
+//           registrosPasados: {
+//             $push: {
+//               $cond: [{ $lte: ["$date", hoy] }, "$$ROOT", "$$REMOVE"],
+//             },
+//           },
+//         },
+//       },
+
+//       // Paso 3: Filtrar y proyectar solo lo que necesitamos
+//       {
+//         $project: {
+//           // Obtenemos el último elemento del array de pasados (el pasado más reciente)
+//           pasadoMasReciente: { $arrayElemAt: ["$registrosPasados", -1] },
+
+//           // Filtramos todos los registros para quedarnos solo con los del futuro (hasta 1 mes)
+//           registrosFuturos: {
+//             $filter: {
+//               input: "$todosLosRegistros",
+//               as: "reg",
+//               cond: {
+//                 $and: [
+//                   { $gt: ["$$reg.date", hoy] },
+//                   { $lte: ["$$reg.date", unMesPosterior] },
+//                 ],
+//               },
+//             },
+//           },
+//         },
+//       },
+
+//       // Paso 4: Combinar el pasado más reciente con los futuros en una sola lista limpia
+//       {
+//         $project: {
+//           resultadosValidos: {
+//             $concatArrays: [
+//               {
+//                 $cond: [
+//                   { $ifNull: ["$pasadoMasReciente", false] },
+//                   ["$pasadoMasReciente"],
+//                   [],
+//                 ],
+//               },
+//               "$registrosFuturos",
+//             ],
+//           },
+//         },
+//       },
+
+//       // Paso 5: Desenrollar la lista para volver a tener un documento por cada TaskDate
+//       { $unwind: "$resultadosValidos" },
+
+//       // Paso 6: Reemplazar la raíz del documento para que tenga la estructura original de TaskDate
+//       { $replaceRoot: { newRoot: "$resultadosValidos" } },
+//     ]);
+
+//     // Paso 7: Como aggregate no soporta .populate() nativo de la misma forma,
+//     // usamos Mongoose para poblar los resultados finales de manera masiva y eficiente.
+//     const resultadosPoblados = await TaskDate.populate(dates, [
+//       {
+//         path: "task",
+//         populate: [
+//           { path: "responsible", select: "idNumber name" },
+//           {
+//             path: "device",
+//             select: "code name",
+//             populate: {
+//               path: "line",
+//               select: "name",
+//               populate: {
+//                 path: "area",
+//                 select: "name",
+//                 populate: { path: "plant", select: "name" },
+//               },
+//             },
+//           },
+//           {
+//             path: "strategy",
+//             populate: { path: "supervisor", select: "idNumber name" },
+//           },
+//         ],
+//       },
+//       {
+//         path: "workOrders",
+//         select: "code completed",
+//       },
+//     ]);
+
+//     let plan = [];
+//     i = 0;
+
+//     for (let date of resultadosPoblados) {
+//       if (
+//         !user ||
+//         (user &&
+//           (user.access === "Admin" ||
+//             (user.access === "Worker" &&
+//               date.task.responsible &&
+//               date.task.responsible.idNumber == user.idNumber) ||
+//             (user.access === "Supervisor" &&
+//               date.task.strategy.supervisor.idNumber == user.idNumber)))
+//       ) {
+//         plan.push({
+//           id: date._id,
+//           plant: date.task.device.line.area.plant.name,
+//           area: date.task.device.line.area.name,
+//           line: date.task.device.line.name,
+//           code: date.task.device.code,
+//           device: date.task.device.name,
+//           date: new Date(date.date),
+//           strategy: date.task.strategy.name,
+//           responsible: date.task.responsible
+//             ? {
+//                 id: date.task.responsible.idNumber,
+//                 name: date.task.responsible.name,
+//               }
+//             : undefined,
+//           supervisor: {
+//             id: date.task.strategy.supervisor.idNumber,
+//             name: date.task.strategy.supervisor.name,
+//           },
+//           observations: date.task.observations,
+//           completed: date.workOrders[0]
+//             ? date.workOrders
+//                 .map((ot) => ot.completed)
+//                 .reduce((a, b) => a + b, 0) / date.workOrders.length
+//             : 0,
+//           workOrders: date.workOrders.map((order) => order.code),
+//         });
+//       }
+//     }
+//     res.status(200).send(plan.sort((a, b) => (a.date > b.date ? 1 : -1)));
+//   } catch (e) {
+//     console.log(e);
+//     res.status(400).send({ error: e.message });
+//   }
+// }
+
 async function getPlan(req, res) {
   try {
     let plantName = "";
@@ -182,83 +401,169 @@ async function getPlan(req, res) {
       strategy: strategies.map((s) => s._id),
     }).lean();
 
-    const dates = await TaskDate.find({
-      task: tasks.map((task) => task._id),
-    }).populate([
+    const today = new Date();
+    const weekDay = today.getDay(); // 0 (Domingo) a 6 (Sábado)
+    const daysFromLastMonday = weekDay === 0 ? 6 : weekDay - 1;
+
+    // --- LUNES DE ESTA SEMANA ---
+    const lastMonday = new Date(today);
+    lastMonday.setDate(today.getDate() - daysFromLastMonday);
+    lastMonday.setHours(0, 0, 0, 0);
+
+    // --- LUNES DE LA SIGUIENTE SEMANA (W+1) ---
+    // Pasamos 'lastMonday' (objeto Date) como base para la copia
+    const nextMonday = new Date(lastMonday);
+    nextMonday.setDate(lastMonday.getDate() + 7);
+
+    // --- LUNES DE LA PRÓXIMA SEMANA (W+2) ---
+    // Pasamos de nuevo 'lastMonday' como base y le sumamos 14 días
+    const endNexWeek = new Date(lastMonday);
+    endNexWeek.setDate(lastMonday.getDate() + 14);
+
+    const dates = await TaskDate.aggregate([
+      // 1. FILTRAR PRIMERO POR TAREAS (Corrección del problema principal)
+      {
+        $match: {
+          task: { $in: tasks.map((task) => task._id) },
+        },
+      },
+
+      // Paso 2: Ordenar cronológicamente por tarea y fecha
+      { $sort: { task: 1, date: 1 } },
+
+      // Paso 3: Agrupar por cada tarea única
+      {
+        $group: {
+          _id: "$task",
+          todosLosRegistros: { $push: "$$ROOT" },
+          // El pasado real es todo lo anterior al lunes de esta semana (00:00 AM)
+          registrosPasados: {
+            $push: {
+              $cond: [{ $lt: ["$date", lastMonday] }, "$$ROOT", "$$REMOVE"],
+            },
+          },
+        },
+      },
+
+      // Paso 4: Filtrar y proyectar solo lo que necesitamos sin agujeros temporales
+      {
+        $project: {
+          // Obtenemos el registro del pasado más cercano al inicio de esta semana
+          pasadoMasReciente: { $arrayElemAt: ["$registrosPasados", -1] },
+
+          // Traemos TODOS los registros de la semana actual y la próxima semana por igual
+          registrosFuturos: {
+            $filter: {
+              input: "$todosLosRegistros",
+              as: "reg",
+              cond: {
+                $and: [
+                  { $gte: ["$$reg.date", lastMonday] }, // Desde el lunes de esta semana a las 00:00
+                  { $lt: ["$$reg.date", endNexWeek] }, // Hasta el lunes W+2 (excluido, cubriendo toda la semana W+1)
+                ],
+              },
+            },
+          },
+        },
+      },
+
+      // Paso 5: Combinar pasado reciente con futuros
+      {
+        $project: {
+          resultadosValidos: {
+            $concatArrays: [
+              {
+                $cond: [
+                  { $ifNull: ["$pasadoMasReciente", false] },
+                  ["$pasadoMasReciente"],
+                  [],
+                ],
+              },
+              "$registrosFuturos",
+            ],
+          },
+        },
+      },
+
+      // Paso 6: Desenrollar y Reemplazar la raíz
+      { $unwind: "$resultadosValidos" },
+      { $replaceRoot: { newRoot: "$resultadosValidos" } },
+    ]);
+
+    const resultadosPoblados = await TaskDate.populate(dates, [
       {
         path: "task",
         populate: [
-          {
-            path: "responsible",
-            select: ["idNumber", "name"],
-          },
+          { path: "responsible", select: "idNumber name" },
           {
             path: "device",
-            select: ["code", "name"],
+            select: "code name",
             populate: {
               path: "line",
               select: "name",
               populate: {
                 path: "area",
                 select: "name",
-                populate: {
-                  path: "plant",
-                  select: "name",
-                },
+                populate: { path: "plant", select: "name" },
               },
             },
           },
           {
             path: "strategy",
-            populate: { path: "supervisor", select: ["idNumber", "name"] },
+            populate: { path: "supervisor", select: "idNumber name" },
           },
         ],
       },
       {
         path: "workOrders",
-        select: ["code", "completed"],
+        select: "code completed",
       },
     ]);
-    let plan = [];
-    i = 0;
 
-    for (let date of dates) {
+    let plan = [];
+
+    for (let date of resultadosPoblados) {
       if (
         !user ||
         (user &&
           (user.access === "Admin" ||
             (user.access === "Worker" &&
-              date.task.responsible &&
+              date.task?.responsible &&
               date.task.responsible.idNumber == user.idNumber) ||
             (user.access === "Supervisor" &&
+              date.task?.strategy?.supervisor && // Validación añadida
               date.task.strategy.supervisor.idNumber == user.idNumber)))
       ) {
         plan.push({
           id: date._id,
-          plant: date.task.device.line.area.plant.name,
-          area: date.task.device.line.area.name,
-          line: date.task.device.line.name,
-          code: date.task.device.code,
-          device: date.task.device.name,
+          plant: date.task?.device?.line?.area?.plant?.name || "",
+          area: date.task?.device?.line?.area?.name || "",
+          line: date.task?.device?.line?.name || "",
+          code: date.task?.device?.code,
+          device: date.task?.device?.name,
           date: new Date(date.date),
-          strategy: date.task.strategy.name,
-          responsible: date.task.responsible
+          strategy: date.task?.strategy?.name,
+          responsible: date.task?.responsible
             ? {
                 id: date.task.responsible.idNumber,
                 name: date.task.responsible.name,
               }
             : undefined,
-          supervisor: {
-            id: date.task.strategy.supervisor.idNumber,
-            name: date.task.strategy.supervisor.name,
-          },
-          observations: date.task.observations,
-          completed: date.workOrders[0]
+          supervisor: date.task?.strategy?.supervisor // Validación añadida
+            ? {
+                id: date.task.strategy.supervisor.idNumber,
+                name: date.task.strategy.supervisor.name,
+              }
+            : undefined,
+          observations: date.task?.observations,
+          completed: date.workOrders?.[0]
             ? date.workOrders
-                .map((ot) => ot.completed)
+                .map((ot) => ot.completed || 0)
                 .reduce((a, b) => a + b, 0) / date.workOrders.length
             : 0,
-          workOrders: date.workOrders.map((order) => order.code),
+          workOrders: date.workOrders
+            ? date.workOrders.map((order) => order.code)
+            : [],
         });
       }
     }
