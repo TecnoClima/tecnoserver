@@ -650,6 +650,27 @@ async function generateReport(req, res) {
       .populate({
         path: "interventions",
         populate: [{ path: "workers", select: "username" }],
+      })
+      .populate({ path: "responsible" })
+      .populate({
+        path: "tech",
+        populate: [
+          { path: "planned", populate: { path: "classification" } },
+          {
+            path: "diagnostics",
+            populate: [
+              {
+                path: "damageType",
+              },
+              {
+                path: "failureType",
+              },
+              {
+                path: "cause",
+              },
+            ],
+          },
+        ],
       });
     // const interventionsIds = orders
     //   .map((order) => order.interventions.map((i) => i._id))
@@ -659,12 +680,20 @@ async function generateReport(req, res) {
     //   intervention: { $in: interventionsIds },
     // });
 
+    console.log("********************************************************");
+    console.log(orders.find((o) => o.type === "tech").responsible);
+    console.log("********************************************************");
+
     const data = orders.map((order) => {
       const powerKcal = order?.device?.powerKcal || 0;
+      const isTech = order.type === "tech";
       return {
         Nro_OT: order.code,
-        Clase: order.class,
-        Problema: order.initIssue || "SIN ESPECIFICAR",
+        Clase: order.tech?.planned?.classification.label || order.class,
+        Problema:
+          order.tech?.diagnostics?.failureType?.label ||
+          order.initIssue ||
+          "SIN ESPECIFICAR",
         Tipo_Causa: order.cause,
         Equipo_id: order.device.code,
         Denominacion: order.device.name,
@@ -676,15 +705,23 @@ async function generateReport(req, res) {
         "Fecha Emisión": order.registration?.date || "",
         Supervisor_Resp: order.supervisor.name,
         Interviniente: JSON.stringify(
-          order.interventions?.map((int) => ({
-            fecha: int.date,
-            personal:
-              int?.workers.map((worker) => worker.username)?.join("-") || "",
-            tarea: int?.tasks || "",
-          })) || ""
+          isTech
+            ? [{ personal: order.responsible?.name }]
+            : order.interventions?.map((int) => ({
+                fecha: int.date,
+                personal:
+                  int?.workers.map((worker) => worker.username)?.join("-") ||
+                  "",
+                tarea: int?.tasks || "",
+              })) || ""
         ),
         Estado: order.status,
-        Causa_Problematica: order.description,
+        Causa_Problematica:
+          order.tech?.diagnostics?.diagnostics ||
+          order.tech?.diagnostics?.cause?.label ||
+          order.tech?.diagnostics?.damageType?.label ||
+          order.description ||
+          order.issue,
       };
     });
 
