@@ -680,10 +680,6 @@ async function generateReport(req, res) {
     //   intervention: { $in: interventionsIds },
     // });
 
-    console.log("********************************************************");
-    console.log(orders.find((o) => o.type === "tech").responsible);
-    console.log("********************************************************");
-
     const data = orders.map((order) => {
       const powerKcal = order?.device?.powerKcal || 0;
       const isTech = order.type === "tech";
