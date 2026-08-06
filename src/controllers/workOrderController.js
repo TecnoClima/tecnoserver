@@ -696,7 +696,7 @@ async function generateReport(req, res) {
         "Tipo Equipo": order.device.type,
         Línea: order.device.line.name,
         Área: order.device.line.area.name,
-        "OT Cliente": order.clientWO || "",
+        "OT Cliente": order.tech?.planned?.clientWO || order.clientWO || "",
         "Pot Frio Tn": parseFloat(Math.round(powerKcal / 3000).toFixed(1)),
         "Fecha Emisión": order.registration?.date || "",
         Supervisor_Resp: order.supervisor.name,

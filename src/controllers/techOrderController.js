@@ -88,7 +88,7 @@ async function createTechOrder(req, res) {
     const device = await Device.findOne(
       mongoose.isValidObjectId(body.device)
         ? { _id: body.device }
-        : { code: body.device },
+        : { code: body.device }
     ).lean();
     if (!device) return res.status(404).send({ error: "Device not found" });
 
@@ -107,6 +107,7 @@ async function createTechOrder(req, res) {
         worktime: toNum(p.worktime),
         downtime: toNum(p.downtime),
         originDate: p.originDate,
+        clientWO: `${p.clientWO}`.trim(),
         // scheduledDate: p.scheduledDate,
         approvalDate: p.approvalDate,
         startDate: p.startDate,
@@ -142,7 +143,7 @@ async function createTechOrder(req, res) {
     const lastOrder = await WorkOrder.findOne(
       {},
       {},
-      { sort: { code: -1 } },
+      { sort: { code: -1 } }
     ).lean();
     let code = lastOrder ? lastOrder.code + 1 : 10000;
 
@@ -341,6 +342,8 @@ async function updateTechOrder(req, res) {
           planned.worktime = toNum(planned.worktime) ?? planned.worktime;
         if (planned.requester !== undefined)
           planned.requester = planned.requester.trim();
+        if (planned.clientWO !== undefined)
+          planned.clientWO = `${planned.clientWO}`.trim();
         if (planned.downtime !== undefined)
           planned.downtime = toNum(planned.downtime) ?? planned.downtime;
         if (planned.originDate !== undefined)
@@ -368,7 +371,7 @@ async function updateTechOrder(req, res) {
       // pre("save") hook skips re-fetching already-snapshotted entries.
       if (Array.isArray(tech.subtasks)) {
         const existingMap = new Map(
-          workOrder.tech.subtasks.map((st) => [st.subtask.toString(), st]),
+          workOrder.tech.subtasks.map((st) => [st.subtask.toString(), st])
         );
 
         workOrder.tech.subtasks = tech.subtasks.map((incoming) => {

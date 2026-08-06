@@ -32,7 +32,7 @@ const TechOrderSubTaskSchema = new Schema(
 
     value: Schema.Types.Mixed,
   },
-  { _id: false },
+  { _id: false }
 );
 
 const TechDiagnosticsSchema = Schema(
@@ -46,7 +46,7 @@ const TechDiagnosticsSchema = Schema(
     damageType: { type: Schema.Types.ObjectId, ref: "Options" },
     finalStatus: { type: String },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const TechPlannedSchema = Schema(
@@ -55,6 +55,7 @@ const TechPlannedSchema = Schema(
     activator: { type: Schema.Types.ObjectId, ref: "Options" },
     classification: { type: Schema.Types.ObjectId, ref: "Options" },
     originDate: { type: Date },
+    clientWO: { type: String },
     // scheduledDate: { type: Date },
     approvalDate: { type: Date },
     startDate: { type: Date },
@@ -63,7 +64,7 @@ const TechPlannedSchema = Schema(
     downtime: { type: Number },
     requester: { type: String },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const TechSchema = Schema(
@@ -83,7 +84,7 @@ const TechSchema = Schema(
     diagnostics: TechDiagnosticsSchema,
     costCenter: { type: String },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const WorkOrderSchema = Schema(
@@ -195,7 +196,7 @@ const WorkOrderSchema = Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 WorkOrderSchema.pre("validate", function (next) {
